@@ -48,3 +48,39 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+```
+gabarito-app
+├─ app
+│  ├─ (tabs)
+│  │  ├─ index.tsx
+│  │  └─ _layout.tsx
+│  ├─ modal.tsx
+│  ├─ scanner.tsx
+│  └─ _layout.tsx
+├─ app.json
+├─ assets
+│  └─ images
+│     ├─ favicon.png
+│     ├─ icon.png
+│     ├─ partial-react-logo.png
+│     ├─ react-logo.png
+│     ├─ react-logo@2x.png
+│     ├─ react-logo@3x.png
+│     └─ splash-icon.png
+├─ eslint.config.js
+├─ package-lock.json
+├─ package.json
+├─ README.md
+├─ scripts
+│  └─ reset-project.js
+├─ src
+│  ├─ components
+│  │  └─ CameraFrame.tsx
+│  ├─ screens
+│  │  └─ Scanner.tsx
+│  └─ services
+│     └─ camera.service.ts
+└─ tsconfig.json
+
+```
