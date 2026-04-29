@@ -1,5 +1,10 @@
-import { Tabs } from 'expo-router';
+import { Stack } from 'expo-router';
+import { AuthProvider } from '../src/contexts/AuthContext';
 
-export default function TabLayout() {
-  return <Tabs />;
+export default function Layout() {
+  return (
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </AuthProvider>
+  );
 }
