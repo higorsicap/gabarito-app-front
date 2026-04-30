@@ -1,27 +1,70 @@
+import { useAuth } from '@/src/contexts/AuthContext';
+import { login } from '@/src/services/loginService';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
 export default function Login() {
     const router = useRouter();
+    const { login: signIn } = useAuth(); // 🔥 contexto
 
     const [usuario, setUsuario] = useState('');
     const [senha, setSenha] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    // 🔥 MOCK DE USUÁRIO
-    const mockUser = {
-        usuario: 'A',
-        senha: 'A',
-    };
+    async function handleLogin() {
+        if (!usuario || !senha) {
+            Alert.alert('Atenção', 'Preencha todos os campos');
+            return;
+        }
 
-    function handleLogin() {
-        if (usuario === mockUser.usuario && senha === mockUser.senha) {
+        try {
+            setLoading(true);
+
+            const res = await login(usuario, senha);
+
+            if (!res) {
+                Alert.alert('Erro', 'Resposta inválida do servidor');
+                return;
+            }
+
+            if (!res.sucesso) {
+                Alert.alert('Erro', res.mensagem);
+                return;
+            }
+
+            const userData = res.recurso;
+
+            // 🔥 VALIDAÇÃO IMPORTANTE
+            if (!userData?.id_aplicador) {
+                Alert.alert('Erro', 'Usuário inválido (sem id_aplicador)');
+                return;
+            }
+
+            // 🔥 SALVA NO CONTEXTO
+            await signIn({
+                id_aplicador: userData.id_aplicador,
+                cpf_aplicador: userData.cpf_aplicador,
+                token: userData.token?.aplicador_token
+            });
+
             Alert.alert('Sucesso', 'Login realizado!');
 
-            // 👉 depois você troca por contexto/API
-            router.push('/home');
-        } else {
-            Alert.alert('Erro', 'Usuário ou senha inválidos');
+            // 🔥 navegação correta (remove login da stack)
+            router.replace('/home');
+
+        } catch (e: any) {
+            Alert.alert('Erro', e.message || 'Erro ao fazer login');
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -31,29 +74,34 @@ export default function Login() {
 
                 <Text style={styles.title}>Acesse sua conta</Text>
                 <Text style={styles.subtitle}>
-                    Digite o nome de usuário e a senha.
+                    Digite seu CPF e senha
                 </Text>
 
                 <TextInput
-                    placeholder="Usuário"
+                    placeholder="CPF"
+                    placeholderTextColor="#000000"
                     style={styles.input}
                     value={usuario}
                     onChangeText={setUsuario}
+                    keyboardType="numeric"
                 />
 
                 <TextInput
                     placeholder="Senha"
+                    placeholderTextColor="#000000"
                     secureTextEntry
                     style={styles.input}
                     value={senha}
                     onChangeText={setSenha}
                 />
 
-                <Text style={styles.forgot}>Esqueceu sua senha</Text>
-
-                <TouchableOpacity style={styles.button} onPress={handleLogin}>
-                    <Text style={styles.buttonText}>Acessar</Text>
-                </TouchableOpacity>
+                {loading ? (
+                    <ActivityIndicator size="large" />
+                ) : (
+                    <TouchableOpacity style={styles.button} onPress={handleLogin}>
+                        <Text style={styles.buttonText}>Acessar</Text>
+                    </TouchableOpacity>
+                )}
 
             </View>
         </View>
@@ -87,7 +135,7 @@ const styles = StyleSheet.create({
     subtitle: {
         textAlign: 'center',
         marginBottom: 20,
-        color: '#333',
+        color: '#000000',
     },
 
     input: {
@@ -98,12 +146,7 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         paddingHorizontal: 10,
         backgroundColor: '#fff',
-    },
-
-    forgot: {
-        textAlign: 'center',
-        color: '#1e66f5',
-        marginBottom: 20,
+        color: '#000000',
     },
 
     button: {

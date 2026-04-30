@@ -1,76 +1,56 @@
 const BASE_URL = 'https://sicapteste.com.br/higor/backTeste/frontController.php';
 
-export async function listarAnoletivo() {
-    try {
-        const response = await fetch(BASE_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                s: 1
-            }),
-        });
+// 🔥 helper padrão
+function toFormBody(data: Record<string, any>) {
+    return Object.keys(data)
+        .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(data[key]))
+        .join('&');
+}
 
-        if (!response.ok) {
-            throw new Error('Erro ao listar clientes');
-        }
+// 🔥 helper de request (centraliza tudo)
+async function postForm(data: Record<string, any>) {
+    const response = await fetch(BASE_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: toFormBody(data),
+    });
 
-        const data = await response.json();
-        return data;
+    const text = await response.text();
 
-    } catch (error) {
-        console.error('Erro:', error);
-        throw error;
+    // 🔥 DEBUG (importantíssimo no seu cenário)
+    if (!response.ok) {
+        console.log('Erro HTTP:', text);
+        throw new Error('Erro na requisição');
     }
+
+    // 🔥 evita crash de JSON (se tiver var_dump, echo, etc)
+    try {
+        return JSON.parse(text);
+    } catch {
+        console.log('⚠️ Resposta não é JSON:', text);
+        return [];
+    }
+}
+
+export async function listarAnoletivo() {
+    return postForm({
+        s: 1
+    });
 }
 
 export async function listarClientes() {
-    try {
-        const response = await fetch(BASE_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                s: 2
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error('Erro ao listar provas');
-        }
-
-        const data = await response.json();
-        return data;
-
-    } catch (error) {
-        console.error('Erro:', error);
-        throw error;
-    }
+    return postForm({
+        s: 2
+    });
 }
 
-export async function listarProvas() {
-    try {
-        const response = await fetch(BASE_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                s: 3
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error('Erro ao listar provas');
-        }
-
-        const data = await response.json();
-        return data;
-
-    } catch (error) {
-        console.error('Erro:', error);
-        throw error;
-    }
+export async function listarProvas(params?: {
+    id_aplicador?: number;
+}) {
+    return postForm({
+        s: 3,
+        id_aplicador: params?.id_aplicador ?? -1 // 🔥 IMPORTANTE
+    });
 }

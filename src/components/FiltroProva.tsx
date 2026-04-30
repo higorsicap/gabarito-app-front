@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: '#ddd',
-        marginBottom: 10,
+        marginBottom: 5,
         elevation: 2
     },
 
