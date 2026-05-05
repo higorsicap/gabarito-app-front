@@ -24,10 +24,8 @@ export default function Home() {
 
   const carregarProvas = useCallback(async () => {
     try {
-      // 🔥 espera auth carregar
       if (authLoading) return;
 
-      // 🔥 sem usuário → limpa
       if (!user?.id_aplicador) {
         setProvas([]);
         return;
@@ -46,18 +44,14 @@ export default function Home() {
         return;
       }
 
-      // 🔥 remove duplicados
-      const listaUnica = Array.from(
-        new Map(
-          data.map((item: any) => [item.id_avaliacao, item])
-        ).values()
-      );
-
-      const lista = listaUnica.map((item: any, index: number) => ({
-        id: item.id_avaliacao ?? index,
+      // 🔥 AQUI ESTÁ A CORREÇÃO (REMOVE MAP)
+      const lista = data.map((item: any, index: number) => ({
+        id: `${item.id_avaliacao}-${item.id_serie}-${index}`, // 🔥 chave única
+        id_prova: item.id_avaliacao,
         cliente: item.nome_cliente,
         prova: item.descricao_avaliacao,
-        ano: item.id_anoletivo
+        ano: item.id_anoletivo,
+        serie: item.id_serie
       }));
 
       setProvas(lista);
@@ -89,9 +83,7 @@ export default function Home() {
 
         <FlatList
           data={provas}
-          keyExtractor={(item, index) =>
-            item?.id ? String(item.id) : String(index)
-          }
+          keyExtractor={(item) => item.id}
 
           contentContainerStyle={{
             paddingHorizontal: 10,
@@ -123,27 +115,26 @@ export default function Home() {
                 <Text style={styles.nome}>{item.prova}</Text>
                 <Text style={styles.data}>{item.cliente}</Text>
                 <Text style={styles.data}>Ano: {item.ano}</Text>
+                <Text style={styles.data}>Serie: {item.serie}</Text>
               </View>
 
               <View style={styles.actions}>
 
-                {/* 📷 */}
                 <TouchableOpacity
                   style={styles.btnCamera}
                   onPress={() =>
                     router.push({
                       pathname: '../scanner',
-                      params: { prova: item.id }
+                      params: { prova: item.id_prova } // 🔥 usa id correto
                     })
                   }
                 >
                   <Ionicons name="camera" size={20} color="#fff" />
                 </TouchableOpacity>
 
-                {/* ⬇️ */}
                 <TouchableOpacity
                   style={styles.btnDownload}
-                  onPress={() => console.log('Download', item.id)}
+                  onPress={() => console.log('Download', item.id_prova)}
                 >
                   <Ionicons name="download" size={20} color="#fff" />
                 </TouchableOpacity>

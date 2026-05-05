@@ -1,6 +1,18 @@
 import { useState } from 'react';
-import { Alert, Button, Image, StyleSheet, Text, View } from 'react-native';
+import {
+    Alert,
+    Button,
+    Image,
+    StyleSheet,
+    Text,
+    View
+} from 'react-native';
+
 import DocumentScanner from 'react-native-document-scanner-plugin';
+
+// 🔥 IMPORTS
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 
 export default function Scanner() {
 
@@ -9,7 +21,7 @@ export default function Scanner() {
     const [imagemCorrigida, setImagemCorrigida] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    // 📄 SCANNER REAL
+    // 📄 SCANNER
     const capturar = async () => {
         try {
             setLoading(true);
@@ -18,7 +30,6 @@ export default function Scanner() {
 
             if (!result?.scannedImages?.length) {
                 Alert.alert('Erro', 'Nenhum documento detectado');
-                setLoading(false); // 🔥 FIX IMPORTANTE
                 return;
             }
 
@@ -37,7 +48,7 @@ export default function Scanner() {
         }
     };
 
-    // 🔥 URI → BASE64 (mais seguro)
+    // 🔥 URI → BASE64
     const uriToBase64 = async (uri: string): Promise<string> => {
         const response = await fetch(uri);
         const blob = await response.blob();
@@ -49,16 +60,65 @@ export default function Scanner() {
                 const result = reader.result;
 
                 if (typeof result === 'string') {
-                    const base64 = result.split(',')[1]; // 🔥 MAIS SEGURO
+                    const base64 = result.split(',')[1];
                     resolve(base64);
                 } else {
-                    reject('Erro ao converter imagem para base64');
+                    reject('Erro ao converter imagem');
                 }
             };
 
             reader.onerror = reject;
             reader.readAsDataURL(blob);
         });
+    };
+
+    // 🔥 SALVAR IMAGEM DO SCANNER (CORRETO)
+    const salvarImagem = async (uri: string) => {
+        try {
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+
+            if (status !== 'granted') {
+                Alert.alert('Permissão negada');
+                return;
+            }
+
+            // ✅ forma correta (cria asset)
+            const asset = await MediaLibrary.createAssetAsync(uri);
+
+            // 🔥 opcional: cria álbum
+            await MediaLibrary.createAlbumAsync('Provas', asset, false);
+
+            Alert.alert('Sucesso', 'Imagem salva na galeria!');
+        } catch (error) {
+            console.log(error);
+            Alert.alert('Erro', 'Falha ao salvar imagem');
+        }
+    };
+
+    // 🔥 SALVAR BASE64 (IMAGEM CORRIGIDA)
+    const salvarImagemBase64 = async (base64: string) => {
+        try {
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+
+            if (status !== 'granted') {
+                Alert.alert('Permissão negada');
+                return;
+            }
+
+            const fileUri =
+                FileSystem.Paths.document + `prova_${Date.now()}.jpg`;
+
+            await FileSystem.writeAsStringAsync(fileUri, base64, {
+                encoding: 'base64', // ✅ CORRETO
+            });
+
+            await MediaLibrary.saveToLibraryAsync(fileUri);
+
+            Alert.alert('Sucesso', 'Imagem corrigida salva!');
+        } catch (error) {
+            console.log(error);
+            Alert.alert('Erro', 'Falha ao salvar imagem');
+        }
     };
 
     // 🔥 SCAN
@@ -70,9 +130,7 @@ export default function Scanner() {
 
             const res = await fetch('http://192.168.1.158:5000/scan', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     image: imagemBase64,
                     mode: 'omr'
@@ -103,9 +161,7 @@ export default function Scanner() {
         try {
             const response = await fetch('http://192.168.1.158:5000/gabarito', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     image: imagemBase64,
                     strict: true
@@ -123,8 +179,6 @@ export default function Scanner() {
                 setImagemCorrigida(`data:image/jpeg;base64,${data.image}`);
             }
 
-            console.log('Respostas:', data.respostas);
-
         } catch (error) {
             console.log(error);
             Alert.alert('Erro', 'Falha no gabarito');
@@ -138,6 +192,14 @@ export default function Scanner() {
                 <Image source={{ uri: imagemCorrigida }} style={styles.preview} />
 
                 <View style={styles.actions}>
+                    <Button
+                        title="Salvar corrigida"
+                        onPress={() => {
+                            const base64 = imagemCorrigida.split(',')[1];
+                            salvarImagemBase64(base64);
+                        }}
+                    />
+
                     <Button
                         title="Nova prova"
                         onPress={() => {
@@ -158,6 +220,11 @@ export default function Scanner() {
                 <Image source={{ uri: imagem }} style={styles.preview} />
 
                 <View style={styles.actions}>
+                    <Button
+                        title="Salvar imagem"
+                        onPress={() => salvarImagem(imagem)}
+                    />
+
                     <Button
                         title="Refazer"
                         onPress={() => {
@@ -214,5 +281,6 @@ const styles = StyleSheet.create({
         width: '100%',
         flexDirection: 'row',
         justifyContent: 'space-around',
+        gap: 10
     },
 });
