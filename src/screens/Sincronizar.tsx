@@ -8,6 +8,7 @@ import {
     View
 } from 'react-native';
 
+import BottomNav from '../components/BottomNav';
 import { enviarRespostas } from '../services/socketiClient';
 
 export default function Sincronizar() {
@@ -61,6 +62,7 @@ export default function Sincronizar() {
 
     return (
         <View style={styles.container}>
+            <BottomNav />
             <View style={styles.center}>
 
                 <Text style={{ marginBottom: 10 }}>

@@ -84,3 +84,55 @@ gabarito-app
 └─ tsconfig.json
 
 ```
+```
+gabarito-app
+├─ app
+│  ├─ home.tsx
+│  ├─ index.tsx
+│  ├─ login.tsx
+│  ├─ modal.tsx
+│  ├─ scanner.tsx
+│  ├─ sincronizador.tsx
+│  ├─ sincronizar.tsx
+│  └─ _layout.tsx
+├─ app.json
+├─ assets
+│  └─ images
+│     ├─ favicon.png
+│     ├─ icon.png
+│     ├─ partial-react-logo.png
+│     ├─ react-logo.png
+│     ├─ react-logo@2x.png
+│     ├─ react-logo@3x.png
+│     └─ splash-icon.png
+├─ eas.json
+├─ eslint.config.js
+├─ package-lock.json
+├─ package.json
+├─ README.md
+├─ scripts
+│  └─ reset-project.js
+├─ src
+│  ├─ components
+│  │  ├─ BottomBack.tsx
+│  │  ├─ BottomNav.tsx
+│  │  ├─ CameraFrame.tsx
+│  │  └─ FiltroProva.tsx
+│  ├─ contexts
+│  │  └─ AuthContext.tsx
+│  ├─ database
+│  ├─ screens
+│  │  ├─ Scanner.tsx
+│  │  ├─ Sincronizador.tsx
+│  │  └─ Sincronizar.tsx
+│  ├─ services
+│  │  ├─ camera.service.ts
+│  │  ├─ listaProvaService.ts
+│  │  ├─ loginService.ts
+│  │  ├─ socketiClient.ts
+│  │  └─ socketServer.ts
+│  └─ types
+│     └─ user.ts
+└─ tsconfig.json
+
+```

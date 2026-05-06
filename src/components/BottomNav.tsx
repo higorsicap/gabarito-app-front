@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import BtnVoltar from './BottomBack';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +48,7 @@ export default function BottomNav() {
                 </TouchableOpacity>
 
                 <Text style={styles.title}>Meu App</Text>
+                <BtnVoltar />
             </View>
 
             {/* 🔥 OVERLAY FULL */}

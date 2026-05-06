@@ -8,6 +8,7 @@ import {
     View
 } from 'react-native';
 
+import BottomNav from '../components/BottomNav';
 import { startServer, subscribe } from '../services/socketServer';
 
 export default function Sincronizador() {
@@ -41,6 +42,7 @@ export default function Sincronizador() {
 
     return (
         <View style={styles.container}>
+            <BottomNav />
 
             <View style={styles.center}>
                 <Text style={{ marginBottom: 10 }}>
