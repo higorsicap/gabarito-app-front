@@ -13,7 +13,10 @@ import {
 } from 'react-native';
 
 import { useAuth } from '@/src/contexts/AuthContext';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  SafeAreaView
+} from 'react-native-safe-area-context';
 
 export default function Home() {
 
@@ -44,9 +47,8 @@ export default function Home() {
         return;
       }
 
-      // 🔥 AQUI ESTÁ A CORREÇÃO (REMOVE MAP)
       const lista = data.map((item: any, index: number) => ({
-        id: `${item.id_avaliacao}-${item.id_serie}-${index}`, // 🔥 chave única
+        id: `${item.id_avaliacao}-${item.id_serie}-${index}`,
         id_prova: item.id_avaliacao,
         cliente: item.nome_cliente,
         prova: item.descricao_avaliacao,
@@ -69,87 +71,88 @@ export default function Home() {
   }, [carregarProvas]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaProvider style={{ flex: 1, backgroundColor: '#ffffff00' }}>
+      <SafeAreaView style={styles.container} edges={[]}>
+        {/* 🔥 HEADER + MENU */}
+        <BottomNav />
 
-      <View style={styles.content}>
-        <Text style={styles.title}>Lista de provas atribuídas:</Text>
-      </View>
+        {/* 🔥 CONTEÚDO */}
+        <View style={styles.content}>
+          <Text style={styles.title}>Lista de provas atribuídas:</Text>
+        </View>
 
-      <View style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
 
-        {(loading || authLoading) && (
-          <ActivityIndicator size="large" style={{ marginTop: 20 }} />
-        )}
+          {(loading || authLoading) && (
+            <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+          )}
 
-        <FlatList
-          data={provas}
-          keyExtractor={(item) => item.id}
+          <FlatList
+            data={provas}
+            keyExtractor={(item) => item.id}
 
-          contentContainerStyle={{
-            paddingHorizontal: 10,
-            paddingBottom: 120
-          }}
+            contentContainerStyle={{
+              paddingHorizontal: 10,
+              paddingBottom: 20 // 🔥 suficiente pra não cortar
+            }}
 
-          ListEmptyComponent={() => {
-            if (loading || authLoading) return null;
+            ListEmptyComponent={() => {
+              if (loading || authLoading) return null;
 
-            if (!user) {
+              if (!user) {
+                return (
+                  <Text style={{ marginTop: 20, textAlign: 'center' }}>
+                    Usuário não autenticado
+                  </Text>
+                );
+              }
+
               return (
                 <Text style={{ marginTop: 20, textAlign: 'center' }}>
-                  Usuário não autenticado
+                  Nenhuma prova encontrada
                 </Text>
               );
-            }
+            }}
 
-            return (
-              <Text style={{ marginTop: 20, textAlign: 'center' }}>
-                Nenhuma prova encontrada
-              </Text>
-            );
-          }}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
 
-          renderItem={({ item }) => (
-            <View style={styles.card}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nome}>{item.prova}</Text>
+                  <Text style={styles.data}>{item.cliente}</Text>
+                  <Text style={styles.data}>Ano: {item.ano}</Text>
+                  <Text style={styles.data}>Serie: {item.serie}</Text>
+                </View>
 
-              <View style={{ flex: 1 }}>
-                <Text style={styles.nome}>{item.prova}</Text>
-                <Text style={styles.data}>{item.cliente}</Text>
-                <Text style={styles.data}>Ano: {item.ano}</Text>
-                <Text style={styles.data}>Serie: {item.serie}</Text>
+                <View style={styles.actions}>
+
+                  <TouchableOpacity
+                    style={styles.btnCamera}
+                    onPress={() =>
+                      router.push({
+                        pathname: '../scanner',
+                        params: { prova: item.id_prova }
+                      })
+                    }
+                  >
+                    <Ionicons name="camera" size={20} color="#fff" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.btnDownload}
+                    onPress={() => console.log('Download', item.id_prova)}
+                  >
+                    <Ionicons name="download" size={20} color="#fff" />
+                  </TouchableOpacity>
+
+                </View>
               </View>
+            )}
+          />
+        </View>
 
-              <View style={styles.actions}>
-
-                <TouchableOpacity
-                  style={styles.btnCamera}
-                  onPress={() =>
-                    router.push({
-                      pathname: '../scanner',
-                      params: { prova: item.id_prova } // 🔥 usa id correto
-                    })
-                  }
-                >
-                  <Ionicons name="camera" size={20} color="#fff" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.btnDownload}
-                  onPress={() => console.log('Download', item.id_prova)}
-                >
-                  <Ionicons name="download" size={20} color="#fff" />
-                </TouchableOpacity>
-
-              </View>
-            </View>
-          )}
-        />
-      </View>
-
-      <View style={styles.navbar}>
-        <BottomNav />
-      </View>
-
-    </SafeAreaView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
@@ -161,7 +164,7 @@ const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: 10,
-    paddingTop: 10,
+    paddingTop: 80, // 🔥 altura do header
     marginBottom: 10
   },
 
@@ -206,12 +209,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#51cf66',
     padding: 10,
     borderRadius: 8
-  },
-
-  navbar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0
   }
 });
