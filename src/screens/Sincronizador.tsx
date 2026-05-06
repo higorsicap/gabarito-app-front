@@ -25,7 +25,7 @@ export default function Sincronizador() {
                 'Servidor iniciado!\n\nLigue o hotspot e conecte os tablets.\n'
             );
 
-        } catch (e) {
+        } catch  {
             Alert.alert('Erro', 'Não foi possível iniciar o servidor');
         }
     }
