@@ -1,8 +1,24 @@
 import BottomNav from '@/src/components/BottomNav';
-import { listarProvas } from '@/src/services/listaProvaService';
+import FiltroProva from '@/src/components/FiltroProva';
+
+import { useAuth } from '@/src/contexts/AuthContext';
+
+import {
+  baixarProva,
+  listarProvas
+} from '@/src/services/listaProvaService';
+
 import { Ionicons } from '@expo/vector-icons';
+
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
+
 import {
   ActivityIndicator,
   FlatList,
@@ -12,11 +28,15 @@ import {
   View
 } from 'react-native';
 
-import { useAuth } from '@/src/contexts/AuthContext';
 import {
   SafeAreaProvider,
   SafeAreaView
 } from 'react-native-safe-area-context';
+
+type ItemFiltro = {
+  id: number;
+  nome: string;
+};
 
 export default function Home() {
 
@@ -25,13 +45,59 @@ export default function Home() {
   const [provas, setProvas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // 🔥 FILTROS
+  const [anoSelecionado, setAnoSelecionado] =
+    useState<ItemFiltro | null>(null);
+
+  const [clienteSelecionado, setClienteSelecionado] =
+    useState<ItemFiltro | null>(null);
+
+  const [escolaSelecionada, setEscolaSelecionada] =
+    useState<ItemFiltro | null>(null);
+
+  // 🔥 DOWNLOAD
+const handleDownload = async (item: any) => {
+
+  try {
+
+    console.log('ITEM DOWNLOAD:', item);
+
+    const response = await baixarProva({
+
+      id_avaliacao: Number(item.id_prova ?? -1),
+
+      id_anoletivo: Number(item.id_anoletivo ?? -1),
+
+      id_serie: Number(item.serie ?? -1),
+
+      id_escola: Number(item.id_escola ?? -1)
+
+    });
+
+    console.log('✅ Prova baixada:', response);
+
+  } catch (error: any) {
+
+    console.log(
+      '❌ Erro ao baixar prova:',
+      error?.message
+    );
+
+  }
+
+};
+
   const carregarProvas = useCallback(async () => {
+
     try {
+
       if (authLoading) return;
 
       if (!user?.id_aplicador) {
+
         setProvas([]);
         return;
+
       }
 
       setLoading(true);
@@ -43,120 +109,279 @@ export default function Home() {
       const data = res?.data || res;
 
       if (!Array.isArray(data)) {
+
         setProvas([]);
         return;
+
       }
 
       const lista = data.map((item: any, index: number) => ({
+
         id: `${item.id_avaliacao}-${item.id_serie}-${index}`,
+
         id_prova: item.id_avaliacao,
+
+        id_cliente: item.id_cliente,
+        id_escola: item.id_escola,
+        id_anoletivo: item.id_anoletivo,
+
         cliente: item.nome_cliente,
+        escola: item.nome_escola,
+
         prova: item.descricao_avaliacao,
         ano: item.id_anoletivo,
-        serie: item.id_serie
+
+        serie: item.id_serie,
+        turma: item.descricao_turma
+
       }));
 
       setProvas(lista);
 
     } catch (e: any) {
-      console.log('Erro ao carregar provas:', e.message);
+
+      console.log(
+        'Erro ao carregar provas:',
+        e.message
+      );
+
       setProvas([]);
+
     } finally {
+
       setLoading(false);
+
     }
+
   }, [user, authLoading]);
 
   useEffect(() => {
     carregarProvas();
   }, [carregarProvas]);
 
+  // 🔥 FILTROS FUNCIONANDO
+  const provasFiltradas = useMemo(() => {
+
+    return provas.filter((item) => {
+
+      // 🔥 FILTRO ANO
+      if (
+        anoSelecionado &&
+        Number(item.id_anoletivo) !== Number(anoSelecionado.id)
+      ) {
+        return false;
+      }
+
+      // 🔥 FILTRO CLIENTE
+      if (
+        clienteSelecionado &&
+        Number(item.id_cliente) !== Number(clienteSelecionado.id)
+      ) {
+        return false;
+      }
+
+      // 🔥 FILTRO ESCOLA
+      if (
+        escolaSelecionada &&
+        Number(item.id_escola) !== Number(escolaSelecionada.id)
+      ) {
+        return false;
+      }
+
+      return true;
+
+    });
+
+  }, [
+    provas,
+    anoSelecionado,
+    clienteSelecionado,
+    escolaSelecionada
+  ]);
+
   return (
-    <SafeAreaProvider style={{ flex: 1, backgroundColor: '#ffffff00' }}>
-      <SafeAreaView style={styles.container} edges={[]}>
-        {/* 🔥 HEADER + MENU */}
+
+    <SafeAreaProvider
+      style={{
+        flex: 1,
+        backgroundColor: '#ffffff00'
+      }}
+    >
+
+      <SafeAreaView
+        style={styles.container}
+        edges={[]}
+      >
+
+        {/* 🔥 HEADER */}
         <BottomNav />
 
         {/* 🔥 CONTEÚDO */}
         <View style={styles.content}>
-          <Text style={styles.title}>Lista de provas atribuídas:</Text>
+
+          <Text style={styles.title}>
+            Lista de provas disponíveis:
+          </Text>
+
+          {/* 🔥 FILTROS */}
+          <FiltroProva
+
+            selecionadoAno={anoSelecionado}
+
+            onSelectAno={(item) => {
+
+              setAnoSelecionado(item);
+
+              // 🔥 LIMPA ESCOLA AO TROCAR ANO
+              setEscolaSelecionada(null);
+
+            }}
+
+            selecionadoCliente={clienteSelecionado}
+
+            onSelectCliente={(item) => {
+              setClienteSelecionado(item);
+            }}
+
+            selecionadoEscola={escolaSelecionada}
+
+            onSelectEscola={(item) => {
+              setEscolaSelecionada(item);
+            }}
+          />
+
         </View>
 
         <View style={{ flex: 1 }}>
 
           {(loading || authLoading) && (
-            <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+            <ActivityIndicator
+              size="large"
+              style={{ marginTop: 20 }}
+            />
           )}
 
           <FlatList
-            data={provas}
+
+            data={provasFiltradas}
+
             keyExtractor={(item) => item.id}
 
             contentContainerStyle={{
               paddingHorizontal: 10,
-              paddingBottom: 20 // 🔥 suficiente pra não cortar
+              paddingBottom: 20
             }}
 
             ListEmptyComponent={() => {
+
               if (loading || authLoading) return null;
 
               if (!user) {
+
                 return (
-                  <Text style={{ marginTop: 20, textAlign: 'center' }}>
+                  <Text style={{
+                    marginTop: 20,
+                    textAlign: 'center'
+                  }}>
                     Usuário não autenticado
                   </Text>
                 );
+
               }
 
               return (
-                <Text style={{ marginTop: 20, textAlign: 'center' }}>
+                <Text style={{
+                  marginTop: 20,
+                  textAlign: 'center'
+                }}>
                   Nenhuma prova encontrada
                 </Text>
               );
+
             }}
 
             renderItem={({ item }) => (
+
               <View style={styles.card}>
 
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.nome}>{item.prova}</Text>
-                  <Text style={styles.data}>{item.cliente}</Text>
-                  <Text style={styles.data}>Ano: {item.ano}</Text>
-                  <Text style={styles.data}>Serie: {item.serie}</Text>
+
+                  <Text style={styles.nome}>
+                    {item.prova}
+                  </Text>
+
+                  <Text style={styles.data}>
+                    Cliente: {item.cliente}
+                  </Text>
+
+                  <Text style={styles.data}>
+                    Escola: {item.escola}
+                  </Text>
+
+                  <Text style={styles.data}>
+                    Turma: {item.turma}
+                  </Text>
+
+                  <Text style={styles.data}>
+                    Ano: {item.ano}
+                  </Text>
+
                 </View>
 
                 <View style={styles.actions}>
 
                   <TouchableOpacity
+
                     style={styles.btnCamera}
+
                     onPress={() =>
                       router.push({
                         pathname: '../scanner',
-                        params: { prova: item.id_prova }
+                        params: {
+                          prova: item.id_prova
+                        }
                       })
                     }
                   >
-                    <Ionicons name="camera" size={20} color="#fff" />
+
+                    <Ionicons
+                      name="camera"
+                      size={20}
+                      color="#fff"
+                    />
+
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.btnDownload}
-                    onPress={() => console.log('Download', item.id_prova)}
+                    onPress={() => handleDownload(item)}
                   >
-                    <Ionicons name="download" size={20} color="#fff" />
+
+                    <Ionicons
+                      name="download"
+                      size={20}
+                      color="#fff"
+                    />
+
                   </TouchableOpacity>
 
                 </View>
+
               </View>
+
             )}
           />
+
         </View>
 
       </SafeAreaView>
+
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: '#efefef',
@@ -164,7 +389,7 @@ const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: 10,
-    paddingTop: 80, // 🔥 altura do header
+    paddingTop: 80,
     marginBottom: 10
   },
 
@@ -178,8 +403,10 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 12,
     marginBottom: 10,
+
     flexDirection: 'row',
     alignItems: 'center',
+
     elevation: 2
   },
 

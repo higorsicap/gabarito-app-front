@@ -1,13 +1,21 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     FlatList,
+    Modal,
     StyleSheet,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View
 } from "react-native";
 
-import { listarAnoletivo, listarClientes } from "@/src/services/listaProvaService";
+import { Ionicons } from '@expo/vector-icons';
+
+import {
+    listarAnoletivo,
+    listarClientes,
+    listarEscolas
+} from "@/src/services/listaProvaService";
 
 type Item = {
     id: number;
@@ -15,173 +23,441 @@ type Item = {
 };
 
 type Props = {
-    onSelectAno: (item: Item) => void;
+
+    onSelectAno?: (item: Item) => void;
     selecionadoAno?: Item | null;
 
-    onSelectCliente: (item: Item) => void;
+    onSelectCliente?: (item: Item) => void;
     selecionadoCliente?: Item | null;
+
+    onSelectEscola?: (item: Item) => void;
+    selecionadoEscola?: Item | null;
+
+    mostrarAno?: boolean;
+    mostrarCliente?: boolean;
+    mostrarEscola?: boolean;
 };
 
 export default function FiltroProva({
+
     onSelectAno,
     selecionadoAno,
+
     onSelectCliente,
-    selecionadoCliente
+    selecionadoCliente,
+
+    onSelectEscola,
+    selecionadoEscola,
+
+    mostrarAno = true,
+    mostrarCliente = true,
+    mostrarEscola = true
+
 }: Props) {
 
     const [dadosAno, setDadosAno] = useState<Item[]>([]);
     const [dadosCliente, setDadosCliente] = useState<Item[]>([]);
+    const [dadosEscola, setDadosEscola] = useState<Item[]>([]);
 
-    const [abertoAno, setAbertoAno] = useState(false);
-    const [abertoCliente, setAbertoCliente] = useState(false);
+    const [modalFiltro, setModalFiltro] = useState(false);
 
-    useEffect(() => {
-        carregar();
+    // 🔥 CARREGAR ESCOLAS
+    const carregarEscolas = useCallback(async (id_anoletivo: number) => {
+
+        try {
+
+            const resEscola = await listarEscolas({
+                id_anoletivo
+            });
+
+            const listaEscola: Item[] = (resEscola.data || resEscola).map(
+                (item: any) => ({
+                    id: item.id_escola,
+                    nome: item.nome_escola
+                })
+            );
+
+            setDadosEscola(listaEscola);
+
+        } catch (e: any) {
+
+            console.log('ERRO ESCOLAS:', e);
+
+        }
+
     }, []);
 
-    const carregar = async () => {
+    // 🔥 CARREGAR DADOS
+    const carregar = useCallback(async () => {
+
         try {
+
             // 🔥 ANO LETIVO
             const resAno = await listarAnoletivo();
-            const listaAno: Item[] = (resAno.data || resAno).map((item: any, index: number) => ({
-                id: item.id_anoletivo ?? index,
-                nome: item.ds_anoletivo ?? 'Sem nome'
-            }));
+
+            const listaAno: Item[] = (resAno.data || resAno).map(
+                (item: any, index: number) => ({
+                    id: item.id_anoletivo ?? index,
+                    nome: item.ds_anoletivo ?? 'Sem nome'
+                })
+            );
+
             setDadosAno(listaAno);
 
             // 🔥 CLIENTES
             const resCliente = await listarClientes();
-            const listaCliente: Item[] = (resCliente.data || resCliente).map((item: any, index: number) => ({
-                id: item.id_cliente ?? index,
-                nome: item.nome_cliente ?? 'Sem nome'
-            }));
+
+            const listaCliente: Item[] = (resCliente.data || resCliente).map(
+                (item: any, index: number) => ({
+                    id: item.id_cliente ?? index,
+                    nome: item.nome_cliente ?? 'Sem nome'
+                })
+            );
+
             setDadosCliente(listaCliente);
 
+            // 🔥 CARREGA TODAS AS ESCOLAS
+            await carregarEscolas(-1);
+
         } catch (e: any) {
+
             console.log(e.message);
+
         }
-    };
+
+    }, [carregarEscolas]);
+
+    useEffect(() => {
+        carregar();
+    }, [carregar]);
 
     return (
         <View style={styles.wrapper}>
 
-            {/* 🔥 SELECT ANO */}
+            {/* 🔥 BOTÃO FILTRAR */}
             <TouchableOpacity
-                style={styles.selectBox}
-                onPress={() => {
-                    setAbertoAno(!abertoAno);
-                    setAbertoCliente(false);
-                }}
+                style={styles.botaoFiltrar}
+                activeOpacity={0.8}
+                onPress={() => setModalFiltro(true)}
             >
-                <Text style={styles.selectText}>
-                    {selecionadoAno ? selecionadoAno.nome : 'Selecione o ano letivo'}
+                <Ionicons
+                    name="options-outline"
+                    size={22}
+                    color="#fff"
+                />
+
+                <Text style={styles.textoBotao}>
+                    Filtrar
                 </Text>
             </TouchableOpacity>
 
-            {abertoAno && (
-                <View style={styles.dropdown}>
-                    <FlatList
-                        data={dadosAno}
-                        keyExtractor={(item) => item.id.toString()}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={[
-                                    styles.item,
-                                    selecionadoAno?.id === item.id && styles.itemSelecionado
-                                ]}
-                                onPress={() => {
-                                    onSelectAno(item);
-                                    setAbertoAno(false);
-                                }}
-                            >
-                                <Text style={styles.itemText}>{item.nome}</Text>
-                            </TouchableOpacity>
-                        )}
-                    />
-                </View>
-            )}
-
-            {/* 🔥 SELECT CLIENTE */}
-            <TouchableOpacity
-                style={styles.selectBox}
-                onPress={() => {
-                    setAbertoCliente(!abertoCliente);
-                    setAbertoAno(false);
-                }}
+            {/* 🔥 MODAL */}
+            <Modal
+                visible={modalFiltro}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setModalFiltro(false)}
             >
-                <Text style={styles.selectText}>
-                    {selecionadoCliente ? selecionadoCliente.nome : 'Selecione o cliente'}
-                </Text>
-            </TouchableOpacity>
+                <TouchableWithoutFeedback
+                    onPress={() => setModalFiltro(false)}
+                >
+                    <View style={styles.overlay}>
 
-            {abertoCliente && (
-                <View style={styles.dropdown}>
-                    <FlatList
-                        data={dadosCliente}
-                        keyExtractor={(item) => item.id.toString()}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={[
-                                    styles.item,
-                                    selecionadoCliente?.id === item.id && styles.itemSelecionado
-                                ]}
-                                onPress={() => {
-                                    onSelectCliente(item);
-                                    setAbertoCliente(false);
-                                }}
-                            >
-                                <Text style={styles.itemText}>{item.nome}</Text>
-                            </TouchableOpacity>
-                        )}
-                    />
-                </View>
-            )}
+                        <TouchableWithoutFeedback>
+                            <View style={styles.modalContainer}>
+
+                                {/* HEADER */}
+                                <View style={styles.header}>
+
+                                    <Text style={styles.titulo}>
+                                        Filtros
+                                    </Text>
+
+                                    <TouchableOpacity
+                                        onPress={() => setModalFiltro(false)}
+                                    >
+                                        <Ionicons
+                                            name="close"
+                                            size={26}
+                                            color="#333"
+                                        />
+                                    </TouchableOpacity>
+
+                                </View>
+
+                                {/* 🔥 ANO LETIVO */}
+                                {mostrarAno && (
+                                    <View style={styles.cardFiltro}>
+
+                                        <Text style={styles.label}>
+                                            Ano Letivo
+                                        </Text>
+
+                                        <FlatList
+                                            data={dadosAno}
+                                            keyExtractor={(item) =>
+                                                item.id.toString()
+                                            }
+                                            horizontal
+                                            showsHorizontalScrollIndicator={false}
+                                            contentContainerStyle={{
+                                                gap: 10
+                                            }}
+                                            renderItem={({ item }) => (
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.chip,
+                                                        selecionadoAno?.id === item.id &&
+                                                        styles.chipSelecionado
+                                                    ]}
+                                                    onPress={async () => {
+
+                                                        onSelectAno?.(item);
+
+                                                        // 🔥 FILTRA ESCOLAS
+                                                        await carregarEscolas(item.id);
+
+                                                    }}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.chipTexto,
+                                                            selecionadoAno?.id === item.id &&
+                                                            styles.chipTextoSelecionado
+                                                        ]}
+                                                    >
+                                                        {item.nome}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        />
+
+                                    </View>
+                                )}
+
+                                {/* 🔥 CLIENTE */}
+                                {/* {mostrarCliente && (
+                                    <View style={styles.cardFiltro}>
+
+                                        <Text style={styles.label}>
+                                            Cliente
+                                        </Text>
+
+                                        <FlatList
+                                            data={dadosCliente}
+                                            keyExtractor={(item) =>
+                                                item.id.toString()
+                                            }
+                                            horizontal
+                                            showsHorizontalScrollIndicator={false}
+                                            contentContainerStyle={{
+                                                gap: 10
+                                            }}
+                                            renderItem={({ item }) => (
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.chip,
+                                                        selecionadoCliente?.id === item.id &&
+                                                        styles.chipSelecionado
+                                                    ]}
+                                                    onPress={() =>
+                                                        onSelectCliente?.(item)
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.chipTexto,
+                                                            selecionadoCliente?.id === item.id &&
+                                                            styles.chipTextoSelecionado
+                                                        ]}
+                                                    >
+                                                        {item.nome}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        />
+
+                                    </View>
+                                )} */}
+
+                                {/* 🔥 ESCOLAS */}
+                                {mostrarEscola && (
+                                    <View style={styles.cardFiltro}>
+
+                                        <Text style={styles.label}>
+                                            Escola
+                                        </Text>
+
+                                        <FlatList
+                                            data={dadosEscola}
+                                            keyExtractor={(item) =>
+                                                item.id.toString()
+                                            }
+                                            horizontal
+                                            showsHorizontalScrollIndicator={false}
+                                            contentContainerStyle={{
+                                                gap: 10
+                                            }}
+                                            renderItem={({ item }) => (
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.chip,
+                                                        selecionadoEscola?.id === item.id &&
+                                                        styles.chipSelecionado
+                                                    ]}
+                                                    onPress={() =>
+                                                        onSelectEscola?.(item)
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.chipTexto,
+                                                            selecionadoEscola?.id === item.id &&
+                                                            styles.chipTextoSelecionado
+                                                        ]}
+                                                    >
+                                                        {item.nome}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            )}
+                                            ListEmptyComponent={() => (
+                                                <Text style={{
+                                                    color: '#6b7280',
+                                                    marginTop: 5
+                                                }}>
+                                                    Nenhuma escola encontrada
+                                                </Text>
+                                            )}
+                                        />
+
+                                    </View>
+                                )}
+
+                                {/* BOTÃO FECHAR */}
+                                <TouchableOpacity
+                                    style={styles.botaoAplicar}
+                                    onPress={() => setModalFiltro(false)}
+                                >
+                                    <Text style={styles.textoAplicar}>
+                                        Aplicar Filtros
+                                    </Text>
+                                </TouchableOpacity>
+
+                            </View>
+                        </TouchableWithoutFeedback>
+
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
 
         </View>
     );
 }
 
 const styles = StyleSheet.create({
+
     wrapper: {
         width: '100%',
-        marginBottom: 20
+        paddingRight: 5,
+        alignItems: 'flex-end',
+        top: -25
     },
 
-    selectBox: {
+    botaoFiltrar: {
+        backgroundColor: '#4dabf7',
+        height: 30,
+        width: 100,
+        borderRadius: 10,
+
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+
+        elevation: 4
+    },
+
+    textoBotao: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700'
+    },
+
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        justifyContent: 'flex-end'
+    },
+
+    modalContainer: {
         backgroundColor: '#fff',
-        padding: 14,
-        borderRadius: 12,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        padding: 20,
+        minHeight: '30%'
+    },
+
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+
+    titulo: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#111827'
+    },
+
+    cardFiltro: {
+        marginBottom: 10
+    },
+
+    label: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 14,
+        color: '#374151'
+    },
+
+    chip: {
+        paddingVertical: 12,
+        paddingHorizontal: 18,
+        borderRadius: 15,
+
+        backgroundColor: '#f3f4f6',
         borderWidth: 1,
-        borderColor: '#ddd',
-        marginBottom: 5,
-        elevation: 2
+        borderColor: '#e5e7eb'
     },
 
-    selectText: {
-        color: '#333'
+    chipSelecionado: {
+        backgroundColor: '#2563eb',
+        borderColor: '#2563eb'
     },
 
-    dropdown: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        marginBottom: 10,
-        maxHeight: 200,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        elevation: 3
+    chipTexto: {
+        color: '#374151',
+        fontWeight: '600'
     },
 
-    item: {
-        padding: 14,
-        borderBottomWidth: 1,
-        borderColor: '#eee'
+    chipTextoSelecionado: {
+        color: '#fff'
     },
 
-    itemSelecionado: {
-        backgroundColor: '#d0ebff'
+    botaoAplicar: {
+        backgroundColor: '#4dabf7',
+        height: 52,
+        borderRadius: 16,
+
+        alignItems: 'center',
+        justifyContent: 'center',
+
+        marginTop: 10
     },
 
-    itemText: {
-        fontSize: 15
+    textoAplicar: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700'
     }
 });

@@ -54,3 +54,27 @@ export async function listarProvas(params?: {
         id_aplicador: params?.id_aplicador ?? -1 // 🔥 IMPORTANTE
     });
 }
+
+export async function baixarProva(params: {
+    id_avaliacao: number;
+    id_anoletivo: number;
+    id_serie: number;
+    id_escola: number;
+}) {
+    return postForm({
+        s: 5,
+        id_avaliacao: params.id_avaliacao,
+        id_anoletivo: params.id_anoletivo,
+        id_serie: params.id_serie,
+        id_escola: params.id_escola
+    });
+}
+
+export async function listarEscolas(params?: {
+    id_anoletivo?: number;
+}) {
+    return postForm({
+        s: 6,
+        id_anoletivo: params?.id_anoletivo ?? -1 // 🔥 IMPORTANTE
+    });
+}
