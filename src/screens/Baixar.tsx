@@ -16,6 +16,7 @@ import BottomNav from '@/src/components/BottomNav';
 import { Ionicons } from '@expo/vector-icons';
 
 import {
+    router,
     useFocusEffect
 } from 'expo-router';
 
@@ -195,9 +196,26 @@ export default function Download() {
                         </Text>
                     </View>
                     <TouchableOpacity
+                        style={styles.btnCamera}
+                        onPress={() =>
+                            router.push({
+                                pathname: '../scanner',
+                                params: {
+                                    prova: item.id_prova
+                                }
+                            })
+                        }
+                    >
+                        <Ionicons
+                            name="camera"
+                            size={20}
+                            color="#fff"
+                        />
+                    </TouchableOpacity>
+                    <TouchableOpacity
                         style={styles.deleteButton}
-                        onPress={() => confirmarExclusao( item.id_prova ) }>
-                        <Ionicons name="trash" size={20} color="#fff"/>
+                        onPress={() => confirmarExclusao(item.id_prova)}>
+                        <Ionicons name="trash" size={20} color="#fff" />
                     </TouchableOpacity>
                 </View>
                 <View style={styles.infoContainer}>
@@ -348,7 +366,7 @@ const styles = StyleSheet.create({
     deleteButton: {
         width: 38,
         height: 38,
-        borderRadius: 10,
+        borderRadius: 8,
         backgroundColor: '#ef4444',
         justifyContent: 'center',
         alignItems: 'center'
@@ -363,6 +381,12 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontSize: 16,
         color: '#666'
-    }
+    },
 
+    btnCamera: {
+        backgroundColor: '#4dabf7',
+        padding: 8,
+        marginRight: 8,
+        borderRadius: 8
+    },
 });

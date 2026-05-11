@@ -8,11 +8,10 @@ import {
   listarProvas
 } from '@/src/services/listaProvaService';
 
-import { salvarProvaOffline } from '@/src/database/provaRepository';
+import { salvarProvaOffline } from '@/src/database/services/provaRepository';
 
 import { Ionicons } from '@expo/vector-icons';
 
-import { router } from 'expo-router';
 
 import {
   useCallback,
@@ -352,24 +351,6 @@ export default function Home() {
                 </View>
 
                 <View style={styles.actions}>
-
-                  <TouchableOpacity
-                    style={styles.btnCamera}
-                    onPress={() =>
-                      router.push({
-                        pathname: '../scanner',
-                        params: {
-                          prova: item.id_prova
-                        }
-                      })
-                    }
-                  >
-                    <Ionicons
-                      name="camera"
-                      size={20}
-                      color="#fff"
-                    />
-                  </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.btnDownload}

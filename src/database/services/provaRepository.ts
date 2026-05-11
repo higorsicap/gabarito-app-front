@@ -1,4 +1,4 @@
-import { db } from "./database";
+import { db } from "../database";
 
 export async function salvarProvaOffline(
     dados: any[]

@@ -28,4 +28,26 @@ export function iniciarDb() {
         );
     `);
 
+    db.execAsync(`
+        CREATE TABLE IF NOT EXISTS 'aluno' (
+            id_aluno INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_turma INTEGER,
+            nome_aluno TEXT,
+            cpf_aluno TEXT,
+            id_prova INTEGER,
+            FOREIGN KEY (id_prova) REFERENCES prova (id_prova)
+        );
+    `);
+
+    db.execAsync(`
+        CREATE TABLE IF NOT EXISTS 'reposta_prova' (
+            id_resposta_prova INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_aluno INTEGER,
+            id_prova INTEGER,
+            numero_questao INTEGER,
+            alternativa TEXT,
+            FOREIGN KEY (id_aluno) REFERENCES aluno (id_aluno),
+            FOREIGN KEY (id_prova) REFERENCES prova (id_prova)
+        );
+    `);
 }

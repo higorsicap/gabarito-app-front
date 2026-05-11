@@ -1,4 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/src/contexts/AuthContext";
+
+import {
+    listarAnoletivo,
+    listarClientes,
+    listarEscolas
+} from "@/src/services/listaProvaService";
+
+import { Ionicons } from '@expo/vector-icons';
+
+import {
+    useCallback,
+    useEffect,
+    useState
+} from "react";
+
 import {
     FlatList,
     Modal,
@@ -8,14 +23,6 @@ import {
     TouchableWithoutFeedback,
     View
 } from "react-native";
-
-import { Ionicons } from '@expo/vector-icons';
-
-import {
-    listarAnoletivo,
-    listarClientes,
-    listarEscolas
-} from "@/src/services/listaProvaService";
 
 type Item = {
     id: number;
@@ -55,6 +62,8 @@ export default function FiltroProva({
 
 }: Props) {
 
+    const { user } = useAuth();
+
     const [dadosAno, setDadosAno] = useState<Item[]>([]);
     const [dadosCliente, setDadosCliente] = useState<Item[]>([]);
     const [dadosEscola, setDadosEscola] = useState<Item[]>([]);
@@ -62,30 +71,42 @@ export default function FiltroProva({
     const [modalFiltro, setModalFiltro] = useState(false);
 
     // 🔥 CARREGAR ESCOLAS
-    const carregarEscolas = useCallback(async (id_anoletivo: number) => {
+    const carregarEscolas = useCallback(async (
+        id_anoletivo: number
+    ) => {
 
         try {
 
             const resEscola = await listarEscolas({
-                id_anoletivo
+                id_anoletivo,
+                id_aplicador: Number(
+                    user?.id_aplicador ?? -1
+                )
             });
 
-            const listaEscola: Item[] = (resEscola.data || resEscola).map(
-                (item: any) => ({
-                    id: item.id_escola,
+            const data = resEscola?.data || resEscola;
+
+            const listaEscola: Item[] = Array.isArray(data)
+                ? data.map((item: any) => ({
+                    id: Number(item.id_escola),
                     nome: item.nome_escola
-                })
-            );
+                }))
+                : [];
 
             setDadosEscola(listaEscola);
 
         } catch (e: any) {
 
-            console.log('ERRO ESCOLAS:', e);
+            console.log(
+                'ERRO ESCOLAS:',
+                e?.message || e
+            );
+
+            setDadosEscola([]);
 
         }
 
-    }, []);
+    }, [user]);
 
     // 🔥 CARREGAR DADOS
     const carregar = useCallback(async () => {
@@ -95,24 +116,41 @@ export default function FiltroProva({
             // 🔥 ANO LETIVO
             const resAno = await listarAnoletivo();
 
-            const listaAno: Item[] = (resAno.data || resAno).map(
-                (item: any, index: number) => ({
-                    id: item.id_anoletivo ?? index,
-                    nome: item.ds_anoletivo ?? 'Sem nome'
-                })
-            );
+            const dataAno = resAno?.data || resAno;
+
+            const listaAno: Item[] = Array.isArray(dataAno)
+                ? dataAno.map(
+                    (item: any, index: number) => ({
+                        id: Number(
+                            item.id_anoletivo ?? index
+                        ),
+                        nome:
+                            item.ds_anoletivo ??
+                            'Sem nome'
+                    })
+                )
+                : [];
 
             setDadosAno(listaAno);
 
             // 🔥 CLIENTES
             const resCliente = await listarClientes();
 
-            const listaCliente: Item[] = (resCliente.data || resCliente).map(
-                (item: any, index: number) => ({
-                    id: item.id_cliente ?? index,
-                    nome: item.nome_cliente ?? 'Sem nome'
-                })
-            );
+            const dataCliente =
+                resCliente?.data || resCliente;
+
+            const listaCliente: Item[] = Array.isArray(dataCliente)
+                ? dataCliente.map(
+                    (item: any, index: number) => ({
+                        id: Number(
+                            item.id_cliente ?? index
+                        ),
+                        nome:
+                            item.nome_cliente ??
+                            'Sem nome'
+                    })
+                )
+                : [];
 
             setDadosCliente(listaCliente);
 
@@ -121,17 +159,25 @@ export default function FiltroProva({
 
         } catch (e: any) {
 
-            console.log(e.message);
+            console.log(
+                'ERRO FILTROS:',
+                e?.message || e
+            );
 
         }
 
     }, [carregarEscolas]);
 
     useEffect(() => {
+
+        if (!user?.id_aplicador) return;
+
         carregar();
-    }, [carregar]);
+
+    }, [carregar, user]);
 
     return (
+
         <View style={styles.wrapper}>
 
             {/* 🔥 BOTÃO FILTRAR */}
@@ -174,7 +220,9 @@ export default function FiltroProva({
                                     </Text>
 
                                     <TouchableOpacity
-                                        onPress={() => setModalFiltro(false)}
+                                        onPress={() =>
+                                            setModalFiltro(false)
+                                        }
                                     >
                                         <Ionicons
                                             name="close"
@@ -214,8 +262,15 @@ export default function FiltroProva({
 
                                                         onSelectAno?.(item);
 
+                                                        // 🔥 LIMPA ESCOLA
+                                                        onSelectEscola?.(
+                                                            null as any
+                                                        );
+
                                                         // 🔥 FILTRA ESCOLAS
-                                                        await carregarEscolas(item.id);
+                                                        await carregarEscolas(
+                                                            item.id
+                                                        );
 
                                                     }}
                                                 >
@@ -336,7 +391,9 @@ export default function FiltroProva({
                                 {/* BOTÃO FECHAR */}
                                 <TouchableOpacity
                                     style={styles.botaoAplicar}
-                                    onPress={() => setModalFiltro(false)}
+                                    onPress={() =>
+                                        setModalFiltro(false)
+                                    }
                                 >
                                     <Text style={styles.textoAplicar}>
                                         Aplicar Filtros
