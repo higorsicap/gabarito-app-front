@@ -8,6 +8,8 @@ import {
   listarProvas
 } from '@/src/services/listaProvaService';
 
+import { salvarProvaOffline } from '@/src/database/provaRepository';
+
 import { Ionicons } from '@expo/vector-icons';
 
 import { router } from 'expo-router';
@@ -21,6 +23,7 @@ import {
 
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -56,36 +59,71 @@ export default function Home() {
     useState<ItemFiltro | null>(null);
 
   // 🔥 DOWNLOAD
-const handleDownload = async (item: any) => {
+  const handleDownload = async (item: any) => {
 
-  try {
+    try {
 
-    console.log('ITEM DOWNLOAD:', item);
+      console.log('ITEM DOWNLOAD:', item);
 
-    const response = await baixarProva({
+      const response = await baixarProva({
+        id_avaliacao: Number(item.id_prova ?? -1),
+        id_anoletivo: Number(item.id_anoletivo ?? -1),
+        id_serie: Number(item.serie ?? -1),
+        id_escola: Number(item.id_escola ?? -1),
+        descricao_turma: item.turma,
+        id_caderno_prova_disciplina: Number(
+          item.id_caderno_prova_disciplina ?? -1
+        )
+      });
 
-      id_avaliacao: Number(item.id_prova ?? -1),
+      console.log('✅ Prova baixada:', response);
 
-      id_anoletivo: Number(item.id_anoletivo ?? -1),
+      // 🔥 CONVERTE JSON
+      const provas =
+        typeof response?.dados === 'string'
+          ? JSON.parse(response.dados)
+          : response?.dados;
 
-      id_serie: Number(item.serie ?? -1),
+      // 🔥 VALIDA
+      if (
+        !Array.isArray(provas) ||
+        provas.length === 0
+      ) {
 
-      id_escola: Number(item.id_escola ?? -1)
+        Alert.alert(
+          'Aviso',
+          'Nenhuma prova encontrada'
+        );
 
-    });
+        return;
 
-    console.log('✅ Prova baixada:', response);
+      }
 
-  } catch (error: any) {
+      // 🔥 SALVA SQLITE
+      await salvarProvaOffline(provas);
 
-    console.log(
-      '❌ Erro ao baixar prova:',
-      error?.message
-    );
+      console.log('💾 Prova salva offline');
 
-  }
+      Alert.alert(
+        'Sucesso',
+        'Prova salva offline com sucesso'
+      );
 
-};
+    } catch (error: any) {
+
+      console.log(
+        '❌ Erro ao baixar prova:',
+        error?.message
+      );
+
+      Alert.alert(
+        'Erro',
+        'Erro ao baixar prova'
+      );
+
+    }
+
+  };
 
   const carregarProvas = useCallback(async () => {
 
@@ -116,24 +154,19 @@ const handleDownload = async (item: any) => {
       }
 
       const lista = data.map((item: any, index: number) => ({
-
         id: `${item.id_avaliacao}-${item.id_serie}-${index}`,
-
         id_prova: item.id_avaliacao,
-
         id_cliente: item.id_cliente,
         id_escola: item.id_escola,
         id_anoletivo: item.id_anoletivo,
-
+        id_caderno_prova_disciplina: item.id_caderno_prova_disciplina,
+        materia: item.descricao_caderno_prova_disciplina,
         cliente: item.nome_cliente,
         escola: item.nome_escola,
-
         prova: item.descricao_avaliacao,
         ano: item.id_anoletivo,
-
         serie: item.id_serie,
         turma: item.descricao_turma
-
       }));
 
       setProvas(lista);
@@ -167,7 +200,8 @@ const handleDownload = async (item: any) => {
       // 🔥 FILTRO ANO
       if (
         anoSelecionado &&
-        Number(item.id_anoletivo) !== Number(anoSelecionado.id)
+        Number(item.id_anoletivo) !==
+        Number(anoSelecionado.id)
       ) {
         return false;
       }
@@ -175,7 +209,8 @@ const handleDownload = async (item: any) => {
       // 🔥 FILTRO CLIENTE
       if (
         clienteSelecionado &&
-        Number(item.id_cliente) !== Number(clienteSelecionado.id)
+        Number(item.id_cliente) !==
+        Number(clienteSelecionado.id)
       ) {
         return false;
       }
@@ -183,7 +218,8 @@ const handleDownload = async (item: any) => {
       // 🔥 FILTRO ESCOLA
       if (
         escolaSelecionada &&
-        Number(item.id_escola) !== Number(escolaSelecionada.id)
+        Number(item.id_escola) !==
+        Number(escolaSelecionada.id)
       ) {
         return false;
       }
@@ -218,23 +254,16 @@ const handleDownload = async (item: any) => {
 
         {/* 🔥 CONTEÚDO */}
         <View style={styles.content}>
-
           <Text style={styles.title}>
             Lista de provas disponíveis:
           </Text>
 
           {/* 🔥 FILTROS */}
           <FiltroProva
-
             selecionadoAno={anoSelecionado}
-
             onSelectAno={(item) => {
-
               setAnoSelecionado(item);
-
-              // 🔥 LIMPA ESCOLA AO TROCAR ANO
               setEscolaSelecionada(null);
-
             }}
 
             selecionadoCliente={clienteSelecionado}
@@ -253,7 +282,6 @@ const handleDownload = async (item: any) => {
         </View>
 
         <View style={{ flex: 1 }}>
-
           {(loading || authLoading) && (
             <ActivityIndicator
               size="large"
@@ -262,11 +290,8 @@ const handleDownload = async (item: any) => {
           )}
 
           <FlatList
-
             data={provasFiltradas}
-
             keyExtractor={(item) => item.id}
-
             contentContainerStyle={{
               paddingHorizontal: 10,
               paddingBottom: 20
@@ -274,7 +299,8 @@ const handleDownload = async (item: any) => {
 
             ListEmptyComponent={() => {
 
-              if (loading || authLoading) return null;
+              if (loading || authLoading)
+                return null;
 
               if (!user) {
 
@@ -301,17 +327,11 @@ const handleDownload = async (item: any) => {
             }}
 
             renderItem={({ item }) => (
-
               <View style={styles.card}>
 
                 <View style={{ flex: 1 }}>
-
                   <Text style={styles.nome}>
                     {item.prova}
-                  </Text>
-
-                  <Text style={styles.data}>
-                    Cliente: {item.cliente}
                   </Text>
 
                   <Text style={styles.data}>
@@ -323,17 +343,18 @@ const handleDownload = async (item: any) => {
                   </Text>
 
                   <Text style={styles.data}>
-                    Ano: {item.ano}
+                    Disciplina: {item.materia}
                   </Text>
 
+                  <Text style={styles.data}>
+                    Ano: {item.ano}
+                  </Text>
                 </View>
 
                 <View style={styles.actions}>
 
                   <TouchableOpacity
-
                     style={styles.btnCamera}
-
                     onPress={() =>
                       router.push({
                         pathname: '../scanner',
@@ -343,39 +364,33 @@ const handleDownload = async (item: any) => {
                       })
                     }
                   >
-
                     <Ionicons
                       name="camera"
                       size={20}
                       color="#fff"
                     />
-
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.btnDownload}
-                    onPress={() => handleDownload(item)}
+                    onPress={() =>
+                      handleDownload(item)
+                    }
                   >
-
                     <Ionicons
                       name="download"
                       size={20}
                       color="#fff"
                     />
-
                   </TouchableOpacity>
 
                 </View>
 
               </View>
-
             )}
           />
-
         </View>
-
       </SafeAreaView>
-
     </SafeAreaProvider>
   );
 }

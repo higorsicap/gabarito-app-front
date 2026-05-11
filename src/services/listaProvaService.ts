@@ -60,13 +60,17 @@ export async function baixarProva(params: {
     id_anoletivo: number;
     id_serie: number;
     id_escola: number;
+    descricao_turma: string;
+    id_caderno_prova_disciplina: number;
 }) {
     return postForm({
         s: 5,
         id_avaliacao: params.id_avaliacao,
         id_anoletivo: params.id_anoletivo,
         id_serie: params.id_serie,
-        id_escola: params.id_escola
+        id_escola: params.id_escola,
+        descricao_turma: params.descricao_turma,
+        id_caderno_prova_disciplina: params.id_caderno_prova_disciplina
     });
 }
 

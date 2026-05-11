@@ -47,7 +47,6 @@ export default function BottomNav() {
                     <Ionicons name="menu" size={28} color="#fff" />
                 </TouchableOpacity>
 
-                <Text style={styles.title}>Meu App</Text>
                 <BtnVoltar />
             </View>
 
@@ -87,6 +86,15 @@ export default function BottomNav() {
                 >
                     <Ionicons name="scan" size={22} color="#333" />
                     <Text style={styles.text}>Scanner</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.item}
+                    onPress={() => router.push('/download')
+                    }
+                >
+                    <Ionicons name="scan" size={22} color="#333" />
+                    <Text style={styles.text}>Baixados</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
