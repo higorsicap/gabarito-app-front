@@ -1,101 +1,140 @@
+import axios from 'axios';
+import DeviceInfo from 'react-native-device-info';
 import { NetworkInfo } from 'react-native-network-info';
-import TcpSocket from 'react-native-tcp-socket';
 
-const PORT = 3000;
+const PORT = 8080;
 const TIMEOUT = 8000;
 
-// 🔥 pega HOST automaticamente (gateway do hotspot)
+// 🔥 pega HOST automaticamente (gateway/hotspot)
 async function getHost(): Promise<string> {
 
     for (let i = 0; i < 3; i++) {
-        const gateway = await NetworkInfo.getGatewayIPAddress();
+
+        const gateway =
+            await NetworkInfo.getGatewayIPAddress();
 
         if (gateway) {
-            console.log('🌐 gateway OK:', gateway);
+
+            console.log(
+                '🌐 gateway OK:',
+                gateway
+            );
+
             return gateway.trim();
+
         }
 
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(
+            r => setTimeout(r, 500)
+        );
+
     }
 
-    throw new Error('Gateway não encontrado após retry');
+    throw new Error(
+        'Gateway não encontrado após retry'
+    );
+
 }
 
-// 🔥 ENVIO DE RESPOSTAS
-export async function enviarRespostas(data: any[]) {
+// 🔥 ENVIO DE RESPOSTAS VIA HTTP
+export async function enviarRespostas(
+    data: any[]
+) {
 
-    const HOST = await getHost();
+    try {
 
-    console.log('🌐 HOST automático:', HOST);
+        const HOST = await getHost();
 
-    return new Promise((resolve, reject) => {
+        console.log(
+            '🌐 HOST automático:',
+            HOST
+        );
 
-        let finalizado = false;
-        let client: any = null;
+        // 🔥 IDENTIFICAÇÃO ÚNICA
+        const uniqueId =
+            await DeviceInfo.getUniqueId();
 
-        const finalizar = (fn: Function, value?: any) => {
-            if (finalizado) return;
+        const brand =
+            DeviceInfo.getBrand();
 
-            finalizado = true;
+        const model =
+            DeviceInfo.getModel();
 
-            try {
-                client?.destroy();
-            } catch {}
+        const deviceName =
+            await DeviceInfo.getDeviceName();
 
-            fn(value);
+        // 🔥 PAYLOAD
+        const payload = {
+
+            type: 'push',
+
+            device: {
+                uniqueId,
+                brand,
+                model,
+                deviceName
+            },
+
+            data: data.map((item) => ({
+
+                ...item,
+
+                device_id: uniqueId,
+
+                device_name: deviceName,
+
+                device_model: model
+
+            }))
+
         };
 
-        // ⏱ timeout seguro
-        const timer = setTimeout(() => {
-            console.log('⏱ timeout');
-            finalizar(reject, new Error('Timeout ao conectar ao pai'));
-        }, TIMEOUT);
+        console.log(
+            '📤 Enviando payload:',
+            payload
+        );
 
-        client = TcpSocket.createConnection(
-            { port: PORT, host: HOST },
-            () => {
-
-                console.log('📡 Conectado ao pai');
-
-                const payload = {
-                    type: 'push',
-                    data
-                };
-
-                try {
-                    client.write(JSON.stringify(payload));
-                } catch (e) {
-                    console.log('❌ erro ao enviar payload', e);
-                    finalizar(reject, e);
+        // 🔥 REQUEST HTTP
+        const response = await axios.post(
+            `http://${HOST}:${PORT}/sync`,
+            payload,
+            {
+                timeout: TIMEOUT,
+                headers: {
+                    'Content-Type':
+                        'application/json'
                 }
             }
         );
 
-        // 📥 resposta do servidor
-        client.on('data', (res: Buffer) => {
-            try {
-                const json = JSON.parse(res.toString());
+        console.log(
+            '✅ Resposta servidor:',
+            response.data
+        );
 
-                console.log('✅ ACK recebido:', json);
+        return response.data;
 
-                clearTimeout(timer);
-                finalizar(resolve, json);
+    } catch (error: any) {
 
-            } catch (e) {
-                console.log('❌ erro parse resposta', e);
-            }
-        });
+        console.log(
+            '❌ erro sincronização:',
+            error?.message
+        );
 
-        client.on('error', (err: any) => {
-            console.log('❌ erro conexão:', err);
+        if (error?.response) {
 
-            clearTimeout(timer);
-            finalizar(reject, new Error('Erro de conexão com o sincronizador'));
-        });
+            console.log(
+                '❌ response:',
+                error.response.data
+            );
 
-        client.on('close', () => {
-            console.log('🔌 conexão fechada');
-        });
+        }
 
-    });
+        throw new Error(
+            error?.message ||
+            'Falha ao sincronizar'
+        );
+
+    }
+
 }
