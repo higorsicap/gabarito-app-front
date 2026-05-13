@@ -1,5 +1,15 @@
+export type TipoAcesso =
+    | 'professor'
+    | 'aplicador';
+
 export type User = {
-  id: number;
-  nome: string;
-  token?: string;
+
+    id_aplicador: number;
+
+    cpf_aplicador: string;
+
+    token: string;
+
+    tipo_acesso: TipoAcesso;
+
 };

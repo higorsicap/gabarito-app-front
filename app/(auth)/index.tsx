@@ -17,66 +17,79 @@ import {
 
 export default function Index() {
 
-    const { user, loading } = useAuth();
+    const {
+        user,
+        loading
+    } = useAuth();
 
     const [isConnected, setIsConnected] =
         useState<boolean | null>(null);
 
-    // 🔥 evita múltiplos redirects
-    const redirected = useRef(false);
+    const redirected =
+        useRef(false);
 
     useEffect(() => {
 
-        const unsubscribe = NetInfo.addEventListener(
-            (state) => {
+        const unsubscribe =
+            NetInfo.addEventListener(
+                (state) => {
 
-                const conectado =
-                    !!state.isConnected &&
-                    !!state.isInternetReachable;
+                    const conectado =
+                        !!state.isConnected;
 
-                setIsConnected(conectado);
+                    setIsConnected(
+                        conectado
+                    );
 
-            }
-        );
+                }
+            );
 
-        return () => unsubscribe();
+        return () =>
+            unsubscribe();
 
     }, []);
 
     useEffect(() => {
 
-        // 🔥 ainda carregando auth
         if (loading) return;
 
-        // 🔥 aguardando netinfo
-        if (isConnected === null) return;
+        if (isConnected === null)
+            return;
 
-        // 🔥 evita navegar múltiplas vezes
-        if (redirected.current) return;
+        if (redirected.current)
+            return;
 
         redirected.current = true;
 
-        // 🔥 ONLINE
-        if (isConnected) {
+        // 🔥 NÃO LOGADO
+        if (!user) {
 
-            if (user) {
+            router.replace(
+                '/(auth)/login'
+            );
 
-                router.replace('/home');
-
-            } else {
-
-                router.replace('/login');
-
-            }
+            return;
 
         }
 
-        // 🔥 OFFLINE
-        else {
+        // 🔥 PROFESSOR
+        if (
+            user.tipo_acesso ===
+            'professor'
+        ) {
 
-            router.replace('/download');
+            router.replace(
+                '/(professor)/home'
+            );
+
+            return;
 
         }
+
+        // 🔥 APLICADOR
+        router.replace(
+            '/(aplicador)/home'
+        );
 
     }, [
         user,
@@ -94,7 +107,9 @@ export default function Index() {
             }}
         >
 
-            <ActivityIndicator size="large" />
+            <ActivityIndicator
+                size="large"
+            />
 
         </View>
 

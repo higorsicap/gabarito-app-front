@@ -1,26 +1,37 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
 import {
-  ActivityIndicator,
-  View
+    Stack,
+    useRouter,
+    useSegments
+} from 'expo-router';
+
+import { useEffect } from 'react';
+
+import {
+    ActivityIndicator,
+    View
 } from 'react-native';
 
 import {
-  AuthProvider,
-  useAuth
+    AuthProvider,
+    useAuth
 } from '@/src/contexts/AuthContext';
 
 import { iniciarDb } from '@/src/database/migrations';
 
 function AuthGuard() {
 
-    const { user, loading } = useAuth();
+    const {
+        user,
+        loading
+    } = useAuth();
 
-    const segments = useSegments();
+    const segments =
+        useSegments();
 
-    const router = useRouter();
+    const router =
+        useRouter();
 
-    // 🔥 inicia banco apenas 1x
+    // 🔥 inicia banco
     useEffect(() => {
 
         iniciarDb();
@@ -31,7 +42,8 @@ function AuthGuard() {
 
         if (loading) return;
 
-        const group = segments[0];
+        const group =
+            segments[0];
 
         const inAuthGroup =
             group === '(auth)';
@@ -42,7 +54,9 @@ function AuthGuard() {
 
         if (!user && !inAuthGroup) {
 
-            router.replace('/(auth)/login');
+            router.replace(
+                '/(auth)/login'
+            );
 
             return;
 
@@ -54,10 +68,24 @@ function AuthGuard() {
 
         if (user && inAuthGroup) {
 
-            // 🔥 exemplo:
-            // redireciona para módulo aplicador
+            // 🔥 PROFESSOR
+            if (
+                user.tipo_acesso ===
+                'professor'
+            ) {
 
-            router.replace('/(aplicador)/home');
+                router.replace(
+                    '/(professor)/home'
+                );
+
+                return;
+
+            }
+
+            // 🔥 APLICADOR
+            router.replace(
+                '/(aplicador)/home'
+            );
 
             return;
 
@@ -85,7 +113,11 @@ function AuthGuard() {
                     alignItems: 'center'
                 }}
             >
-                <ActivityIndicator size="large" />
+
+                <ActivityIndicator
+                    size="large"
+                />
+
             </View>
 
         );
@@ -93,7 +125,7 @@ function AuthGuard() {
     }
 
     // =====================================
-    // 🔥 STACK GLOBAL
+    // 🔥 STACK
     // =====================================
 
     return (

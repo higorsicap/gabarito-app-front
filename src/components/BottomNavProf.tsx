@@ -16,7 +16,7 @@ import {
 
 const { width } = Dimensions.get('window');
 
-export default function BottomNav() {
+export default function BottomNavProf() {
     const { logout } = useAuth();
 
     const [open, setOpen] = useState(false);
@@ -91,7 +91,7 @@ export default function BottomNav() {
                     }}
                 >
                     <Ionicons name="home" size={22} color="#333" />
-                    <Text style={styles.text}>Home</Text>
+                    <Text style={styles.text}>Incio</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -100,7 +100,7 @@ export default function BottomNav() {
                     }
                 >
                     <Ionicons name="scan" size={22} color="#333" />
-                    <Text style={styles.text}>Scanner</Text>
+                    <Text style={styles.text}>Corrigir</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -109,25 +109,7 @@ export default function BottomNav() {
                     }
                 >
                     <Ionicons name="scan" size={22} color="#333" />
-                    <Text style={styles.text}>Baixados</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.item}
-                    onPress={() => router.push('/sincronizador')
-                    }
-                >
-                    <Ionicons name="sync-circle-outline" size={22} color="#333" />
-                    <Text style={styles.text}>Sincronizador</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.item}
-                    onPress={() => router.push('/sincronizar')
-                    }
-                >
-                    <Ionicons name="sync-outline" size={22} color="#333" />
-                    <Text style={styles.text}>Sincronizar</Text>
+                    <Text style={styles.text}>Avaliações</Text>
                 </TouchableOpacity>
 
                 {/* 🔥 LOGOUT */}

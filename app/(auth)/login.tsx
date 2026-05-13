@@ -1,6 +1,8 @@
 import { useAuth } from '@/src/contexts/AuthContext';
 import { login } from '@/src/services/loginService';
+
 import { useRouter } from 'expo-router';
+
 import { useState } from 'react';
 
 import {
@@ -33,7 +35,11 @@ export default function Login() {
         useState(false);
 
     const [tipoAcesso, setTipoAcesso] =
-        useState<string | null>(null);
+        useState<
+            'professor' |
+            'aplicador' |
+            null
+        >(null);
 
     async function handleLogin() {
 
@@ -90,10 +96,13 @@ export default function Login() {
 
             }
 
-            const userData = res.recurso;
+            const userData =
+                res.recurso;
 
             // 🔥 VALIDAÇÃO
-            if (!userData?.id_aplicador) {
+            if (
+                !userData?.id_aplicador
+            ) {
 
                 Alert.alert(
                     'Erro',
@@ -114,7 +123,10 @@ export default function Login() {
                     userData.cpf_aplicador,
 
                 token:
-                    userData.token?.aplicador_token
+                    userData.token?.aplicador_token,
+
+                tipo_acesso:
+                    tipoAcesso
 
             });
 
@@ -123,13 +135,21 @@ export default function Login() {
                 'Login realizado!'
             );
 
-            if (tipoAcesso === 'professor') {
+            // 🔥 REDIRECT
+            if (
+                tipoAcesso ===
+                'professor'
+            ) {
 
-                router.replace('/(professor)/home');
+                router.replace(
+                    '/(professor)/home'
+                );
 
             } else {
 
-                router.replace('/(aplicador)/home');
+                router.replace(
+                    '/(aplicador)/home'
+                );
 
             }
 
@@ -189,7 +209,11 @@ export default function Login() {
                     <RNPickerSelect
 
                         onValueChange={(value) =>
-                            setTipoAcesso(value)
+                            setTipoAcesso(
+                                value as
+                                | 'professor'
+                                | 'aplicador'
+                            )
                         }
 
                         value={tipoAcesso}
@@ -250,27 +274,28 @@ export default function Login() {
 
 }
 
-const pickerSelectStyles = StyleSheet.create({
+const pickerSelectStyles =
+    StyleSheet.create({
 
-    inputIOS: {
-        height: 50,
-        fontSize: 16,
-        paddingHorizontal: 12,
-        color: '#000',
-    },
+        inputIOS: {
+            height: 50,
+            fontSize: 16,
+            paddingHorizontal: 12,
+            color: '#000',
+        },
 
-    inputAndroid: {
-        height: 50,
-        fontSize: 16,
-        paddingHorizontal: 12,
-        color: '#000',
-    },
+        inputAndroid: {
+            height: 50,
+            fontSize: 16,
+            paddingHorizontal: 12,
+            color: '#000',
+        },
 
-    placeholder: {
-        color: '#666',
-    },
+        placeholder: {
+            color: '#666',
+        },
 
-});
+    });
 
 const styles = StyleSheet.create({
 
