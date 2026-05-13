@@ -8,8 +8,8 @@ import {
     View
 } from 'react-native';
 
-import BottomNav from '../components/BottomNav';
-import { startServer, subscribe } from '../services/socketServer';
+import BottomNav from '@/src/components/BottomNav';
+import { startServer, subscribe } from '@/src/services/socketServer';
 
 export default function Sincronizador() {
 

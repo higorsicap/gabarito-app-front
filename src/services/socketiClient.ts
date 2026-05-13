@@ -1,8 +1,13 @@
 import axios from 'axios';
+
 import DeviceInfo from 'react-native-device-info';
-import { NetworkInfo } from 'react-native-network-info';
+
+import {
+    NetworkInfo
+} from 'react-native-network-info';
 
 const PORT = 8080;
+
 const TIMEOUT = 8000;
 
 // 🔥 pega HOST automaticamente (gateway/hotspot)
@@ -36,6 +41,111 @@ async function getHost(): Promise<string> {
 
 }
 
+// 🔥 pega identificação do dispositivo
+async function getDeviceInfo() {
+
+    // 🔥 ANDROID_ID
+    let androidId = '';
+
+    try {
+
+        androidId =
+            await DeviceInfo.getAndroidId();
+
+    } catch (e) {
+
+        console.log(
+            '❌ erro androidId',
+            e
+        );
+
+    }
+
+    // 🔥 UNIQUE ID
+    let uniqueId = '';
+
+    try {
+
+        uniqueId =
+            await DeviceInfo.getUniqueId();
+
+    } catch (e) {
+
+        console.log(
+            '❌ erro uniqueId',
+            e
+        );
+
+    }
+
+    // 🔥 MAC ADDRESS
+    let macAddress = '';
+
+    try {
+
+        macAddress =
+            await DeviceInfo.getMacAddress();
+
+    } catch (e) {
+
+        console.log(
+            '❌ erro macAddress',
+            e
+        );
+
+    }
+
+    // 🔥 SERIAL / IMEI (Android moderno geralmente bloqueia)
+    let serialNumber = '';
+
+    try {
+
+        serialNumber =
+            await DeviceInfo.getSerialNumber();
+
+    } catch (e) {
+
+        console.log(
+            '❌ erro serialNumber',
+            e
+        );
+
+    }
+
+    const brand =
+        DeviceInfo.getBrand();
+
+    const model =
+        DeviceInfo.getModel();
+
+    const systemName =
+        DeviceInfo.getSystemName();
+
+    const systemVersion =
+        DeviceInfo.getSystemVersion();
+
+    const deviceName =
+        await DeviceInfo.getDeviceName();
+
+    return {
+
+        androidId,
+        uniqueId,
+        macAddress,
+        serialNumber,
+
+        brand,
+        model,
+
+        systemName,
+        systemVersion,
+
+        deviceName
+
+    };
+
+}
+
 // 🔥 ENVIO DE RESPOSTAS VIA HTTP
 export async function enviarRespostas(
     data: any[]
@@ -43,25 +153,32 @@ export async function enviarRespostas(
 
     try {
 
-        const HOST = await getHost();
+        const HOST =
+            await getHost();
 
         console.log(
             '🌐 HOST automático:',
             HOST
         );
 
-        // 🔥 IDENTIFICAÇÃO ÚNICA
-        const uniqueId =
-            await DeviceInfo.getUniqueId();
+        // 🔥 DADOS DO DEVICE
+        const device =
+            await getDeviceInfo();
 
-        const brand =
-            DeviceInfo.getBrand();
+        console.log(
+            '📱 DEVICE:',
+            device
+        );
 
-        const model =
-            DeviceInfo.getModel();
+        // 🔥 ID PRINCIPAL
+        // prioridade:
+        // MAC -> SERIAL -> ANDROID_ID -> UNIQUE_ID
 
-        const deviceName =
-            await DeviceInfo.getDeviceName();
+        const deviceId =
+            device.macAddress ||
+            device.serialNumber ||
+            device.androidId ||
+            device.uniqueId;
 
         // 🔥 PAYLOAD
         const payload = {
@@ -69,43 +186,94 @@ export async function enviarRespostas(
             type: 'push',
 
             device: {
-                uniqueId,
-                brand,
-                model,
-                deviceName
+
+                device_id:
+                    deviceId,
+
+                android_id:
+                    device.androidId,
+
+                unique_id:
+                    device.uniqueId,
+
+                mac_address:
+                    device.macAddress,
+
+                serial_number:
+                    device.serialNumber,
+
+                brand:
+                    device.brand,
+
+                model:
+                    device.model,
+
+                device_name:
+                    device.deviceName,
+
+                system_name:
+                    device.systemName,
+
+                system_version:
+                    device.systemVersion
+
             },
 
-            data: data.map((item) => ({
+            data: data.map(
+                (item) => ({
 
-                ...item,
+                    ...item,
 
-                device_id: uniqueId,
+                    device_id:
+                        deviceId,
 
-                device_name: deviceName,
+                    android_id:
+                        device.androidId,
 
-                device_model: model
+                    unique_id:
+                        device.uniqueId,
 
-            }))
+                    mac_address:
+                        device.macAddress,
+
+                    serial_number:
+                        device.serialNumber,
+
+                    device_name:
+                        device.deviceName,
+
+                    device_model:
+                        device.model
+
+                })
+            )
 
         };
 
         console.log(
             '📤 Enviando payload:',
-            payload
+            JSON.stringify(
+                payload,
+                null,
+                2
+            )
         );
 
         // 🔥 REQUEST HTTP
-        const response = await axios.post(
-            `http://${HOST}:${PORT}/sync`,
-            payload,
-            {
-                timeout: TIMEOUT,
-                headers: {
-                    'Content-Type':
-                        'application/json'
+        const response =
+            await axios.post(
+                `http://${HOST}:${PORT}/sync`,
+                payload,
+                {
+                    timeout:
+                        TIMEOUT,
+
+                    headers: {
+                        'Content-Type':
+                            'application/json'
+                    }
                 }
-            }
-        );
+            );
 
         console.log(
             '✅ Resposta servidor:',

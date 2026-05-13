@@ -1,6 +1,6 @@
-import BottomNav from '../components/BottomNav';
+import BottomNav from '@/src/components/BottomNav';
 
-import { enviarRespostas } from '../services/socketiClient';
+import { enviarRespostas } from '@/src/services/socketiClient';
 
 import { useState } from 'react';
 

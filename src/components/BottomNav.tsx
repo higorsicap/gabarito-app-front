@@ -90,7 +90,7 @@ export default function BottomNav() {
 
                 <TouchableOpacity
                     style={styles.item}
-                    onPress={() => router.push('/download')
+                    onPress={() => router.push('/baixar')
                     }
                 >
                     <Ionicons name="scan" size={22} color="#333" />

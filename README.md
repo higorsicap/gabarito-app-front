@@ -48,63 +48,25 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
-
 ```
 gabarito-app
 ├─ app
-│  ├─ (tabs)
-│  │  ├─ index.tsx
+│  ├─ (aplicador)
+│  │  ├─ baixar.tsx
+│  │  ├─ home.tsx
+│  │  ├─ sincronizador.tsx
+│  │  ├─ sincronizar.tsx
 │  │  └─ _layout.tsx
-│  ├─ modal.tsx
-│  ├─ scanner.tsx
+│  ├─ (auth)
+│  │  ├─ index.tsx
+│  │  └─ login.tsx
+│  ├─ (professor)
+│  │  ├─ home.tsx
+│  │  ├─ scanner.tsx
+│  │  └─ _layout.tsx
 │  └─ _layout.tsx
 ├─ app.json
 ├─ assets
-│  └─ images
-│     ├─ favicon.png
-│     ├─ icon.png
-│     ├─ partial-react-logo.png
-│     ├─ react-logo.png
-│     ├─ react-logo@2x.png
-│     ├─ react-logo@3x.png
-│     └─ splash-icon.png
-├─ eslint.config.js
-├─ package-lock.json
-├─ package.json
-├─ README.md
-├─ scripts
-│  └─ reset-project.js
-├─ src
-│  ├─ components
-│  │  └─ CameraFrame.tsx
-│  ├─ screens
-│  │  └─ Scanner.tsx
-│  └─ services
-│     └─ camera.service.ts
-└─ tsconfig.json
-
-```
-```
-gabarito-app
-├─ app
-│  ├─ home.tsx
-│  ├─ index.tsx
-│  ├─ login.tsx
-│  ├─ modal.tsx
-│  ├─ scanner.tsx
-│  ├─ sincronizador.tsx
-│  ├─ sincronizar.tsx
-│  └─ _layout.tsx
-├─ app.json
-├─ assets
-│  └─ images
-│     ├─ favicon.png
-│     ├─ icon.png
-│     ├─ partial-react-logo.png
-│     ├─ react-logo.png
-│     ├─ react-logo@2x.png
-│     ├─ react-logo@3x.png
-│     └─ splash-icon.png
 ├─ eas.json
 ├─ eslint.config.js
 ├─ package-lock.json
@@ -121,10 +83,10 @@ gabarito-app
 │  ├─ contexts
 │  │  └─ AuthContext.tsx
 │  ├─ database
-│  ├─ screens
-│  │  ├─ Scanner.tsx
-│  │  ├─ Sincronizador.tsx
-│  │  └─ Sincronizar.tsx
+│  │  ├─ database.ts
+│  │  ├─ migrations.ts
+│  │  └─ services
+│  │     └─ provaRepository.ts
 │  ├─ services
 │  │  ├─ camera.service.ts
 │  │  ├─ listaProvaService.ts

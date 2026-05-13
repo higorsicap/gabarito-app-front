@@ -1,92 +1,123 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import {
+  ActivityIndicator,
+  View
+} from 'react-native';
 
-import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
+import {
+  AuthProvider,
+  useAuth
+} from '@/src/contexts/AuthContext';
 
-import { iniciarDb } from '../src/database/migrations';
+import { iniciarDb } from '@/src/database/migrations';
 
 function AuthGuard() {
 
-  const { user, loading } = useAuth();
+    const { user, loading } = useAuth();
 
-  const segments = useSegments();
+    const segments = useSegments();
 
-  const router = useRouter();
+    const router = useRouter();
 
-  useEffect(() => {
+    // 🔥 inicia banco apenas 1x
+    useEffect(() => {
 
-    iniciarDb();
+        iniciarDb();
 
-  }, []);
+    }, []);
 
-  useEffect(() => {
+    useEffect(() => {
 
-    if (loading) return;
+        if (loading) return;
 
-    const currentRoute = segments[0];
+        const group = segments[0];
 
-    const isLogin = currentRoute === 'login';
+        const inAuthGroup =
+            group === '(auth)';
 
-    // NÃO LOGADO
-    if (!user && !isLogin) {
+        // =====================================
+        // 🔥 NÃO LOGADO
+        // =====================================
 
-      router.replace('/login');
+        if (!user && !inAuthGroup) {
 
-      return;
+            router.replace('/(auth)/login');
+
+            return;
+
+        }
+
+        // =====================================
+        // 🔥 LOGADO
+        // =====================================
+
+        if (user && inAuthGroup) {
+
+            // 🔥 exemplo:
+            // redireciona para módulo aplicador
+
+            router.replace('/(aplicador)/home');
+
+            return;
+
+        }
+
+    }, [
+        user,
+        loading,
+        segments,
+        router
+    ]);
+
+    // =====================================
+    // 🔥 LOADING
+    // =====================================
+
+    if (loading) {
+
+        return (
+
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}
+            >
+                <ActivityIndicator size="large" />
+            </View>
+
+        );
 
     }
 
-    // LOGADO
-    if (user && isLogin) {
-
-      router.replace('/home');
-
-      return;
-
-    }
-
-  }, [user, loading, segments, router]);
-
-  if (loading) {
+    // =====================================
+    // 🔥 STACK GLOBAL
+    // =====================================
 
     return (
 
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center'
-        }}
-      >
-        <ActivityIndicator size="large" />
-      </View>
+        <Stack
+            screenOptions={{
+                headerShown: false
+            }}
+        />
 
     );
 
-  }
-
-  return (
-
-    <Stack
-      screenOptions={{
-        headerShown: false
-      }}
-    />
-
-  );
-
 }
 
-export default function Layout() {
+export default function RootLayout() {
 
-  return (
+    return (
 
-    <AuthProvider>
+        <AuthProvider>
 
-      <AuthGuard />
+            <AuthGuard />
 
-    </AuthProvider>
+        </AuthProvider>
 
-  );
+    );
 
 }
