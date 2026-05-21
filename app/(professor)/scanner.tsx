@@ -1,3 +1,8 @@
+import { OMR_QUESTOES } from '@/src/config/omrLayour';
+import { processarOMR } from '@/src/services/omrService';
+
+import * as MediaLibrary from 'expo-media-library';
+
 import { useState } from 'react';
 
 import {
@@ -11,12 +16,21 @@ import {
 
 import DocumentScanner from 'react-native-document-scanner-plugin';
 
-// 🔥 FILESYSTEM LEGACY
+type ResultadoAlternativa = {
+    letra: string;
+    pixels: number;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+};
 
-import * as MediaLibrary from 'expo-media-library';
-
-// 🔥 OMR
-import { processarOMR } from '@/src/services/omrService';
+type ResultadoQuestao = {
+    questao: number;
+    marcada: string;
+    pixels: number;
+    alternativas: ResultadoAlternativa[];
+};
 
 export default function Scanner() {
 
@@ -25,6 +39,9 @@ export default function Scanner() {
 
     const [loading, setLoading] =
         useState(false);
+
+    const [resultadoOMR, setResultadoOMR] =
+        useState<ResultadoQuestao[] | null>(null);
 
     // =====================================================
     // 📄 ESCANEAR DOCUMENTO
@@ -56,6 +73,8 @@ export default function Scanner() {
                 result.scannedImages[0];
 
             setImagem(imageUri);
+
+            setResultadoOMR(null);
 
         } catch (error) {
 
@@ -147,20 +166,29 @@ export default function Scanner() {
 
             setLoading(true);
 
-            // 🔥 RESULTADO
             const resultado =
-                await processarOMR(
-                    imagem
-                );
+                await processarOMR(imagem);
 
             console.log(
                 '✅ RESULTADO OMR:',
                 resultado
             );
 
-            // 🔥 MOSTRA JSON
+            if (!resultado) {
+
+                Alert.alert(
+                    'Erro',
+                    'Nenhum resultado encontrado'
+                );
+
+                return;
+
+            }
+
+            setResultadoOMR(resultado);
+
             Alert.alert(
-                'Respostas capturadas',
+                'Resultado OMR',
                 JSON.stringify(
                     resultado,
                     null,
@@ -195,10 +223,89 @@ export default function Scanner() {
 
             <View style={styles.container}>
 
-                <Image
-                    source={{ uri: imagem }}
-                    style={styles.preview}
-                />
+                <View style={styles.imageContainer}>
+
+                    <Image
+                        source={{ uri: imagem }}
+                        style={styles.preview}
+                    />
+
+                    {/* 🔥 OVERLAY DEBUG */}
+
+                    {
+                        OMR_QUESTOES.map((questao) => (
+
+                            Object.entries(
+                                questao.alternativas
+                            ).map(([letra, area]) => {
+
+                                const alternativaResultado =
+                                    resultadoOMR
+                                        ?.find(
+                                            (q) =>
+                                                q.questao ===
+                                                questao.numero
+                                        )
+                                        ?.alternativas
+                                        ?.find(
+                                            (a) =>
+                                                a.letra ===
+                                                letra
+                                        );
+
+                                return (
+
+                                    <View
+                                        key={`${questao.numero}-${letra}`}
+                                        style={{
+                                            position: 'absolute',
+
+                                            left: area.x,
+                                            top: area.y,
+
+                                            width: area.w,
+                                            height: area.h,
+
+                                            borderWidth: 2,
+                                            borderColor: 'red',
+
+                                            backgroundColor:
+                                                'rgba(255,0,0,0.20)',
+
+                                            justifyContent: 'center',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+
+                                        <Text
+                                            style={{
+                                                color: '#fff',
+                                                fontSize: 10,
+                                                fontWeight: 'bold',
+                                                textAlign: 'center'
+                                            }}
+                                        >
+                                            {letra}
+
+                                            {'\n'}
+
+                                            {
+                                                alternativaResultado?.pixels ??
+                                                0
+                                            }
+
+                                        </Text>
+
+                                    </View>
+
+                                );
+
+                            })
+
+                        ))
+                    }
+
+                </View>
 
                 <View style={styles.actions}>
 
@@ -214,6 +321,8 @@ export default function Scanner() {
                         onPress={() => {
 
                             setImagem(null);
+
+                            setResultadoOMR(null);
 
                         }}
                     />
@@ -278,6 +387,14 @@ const styles = StyleSheet.create({
 
     },
 
+    imageContainer: {
+
+        flex: 1,
+
+        position: 'relative'
+
+    },
+
     center: {
 
         flex: 1,
@@ -302,9 +419,11 @@ const styles = StyleSheet.create({
 
     preview: {
 
-        flex: 1,
+        width: '100%',
 
-        resizeMode: 'contain',
+        height: '100%',
+
+        resizeMode: 'stretch',
 
         backgroundColor: '#000'
 
