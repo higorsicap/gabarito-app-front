@@ -1,7 +1,5 @@
 import BottomNav from '@/src/components/BottomNav';
 
-import { enviarRespostas } from '@/src/services/socketiClient';
-
 import { useState } from 'react';
 
 import {
@@ -12,6 +10,10 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+
+import {
+    salvarRespostasOffline
+} from '@/src/database/services/respostaRepository';
 
 export default function Sincronizar() {
 
@@ -27,71 +29,105 @@ export default function Sincronizar() {
 
             setLoading(true);
 
-            setStatus('Enviando respostas...');
+            setStatus(
+                'Salvando no SQLite...'
+            );
 
-            // 🔥 MOCK
-            // depois trocar pelo banco SQLite
+            // 🔥 MOCK (tablet filho)
             const respostas = [
 
                 {
-                    id: 1,
-                    aluno: 'João',
-                    respostas: ['A', 'B', 'C'],
-                    updated_at:
-                        new Date().toISOString()
+                    nome_aluno: 'João',
+                    id_prova: 1,
+
+                    respostas: [
+                        {
+                            numero_questao: 1,
+                            alternativa: 'A'
+                        },
+                        {
+                            numero_questao: 2,
+                            alternativa: 'B'
+                        },
+                        {
+                            numero_questao: 3,
+                            alternativa: 'C'
+                        },
+                        {
+                            numero_questao: 4,
+                            alternativa: 'D'
+                        }
+                    ]
                 },
 
                 {
-                    id: 2,
-                    aluno: 'Maria',
-                    respostas: ['D', 'A', 'B'],
-                    updated_at:
-                        new Date().toISOString()
+                    nome_aluno: 'Maria',
+                    id_prova: 1,
+
+                    respostas: [
+                        {
+                            numero_questao: 1,
+                            alternativa: 'B'
+                        },
+                        {
+                            numero_questao: 2,
+                            alternativa: 'C'
+                        },
+                        {
+                            numero_questao: 3,
+                            alternativa: 'A'
+                        },
+                        {
+                            numero_questao: 4,
+                            alternativa: 'D'
+                        }
+                    ]
                 }
 
             ];
 
-            // 🔥 validação
+            console.log(
+                '📤 RESPOSTAS:',
+                JSON.stringify(
+                    respostas,
+                    null,
+                    2
+                )
+            );
+
             if (!respostas.length) {
 
                 Alert.alert(
                     'Atenção',
-                    'Nenhuma resposta encontrada para sincronizar.'
+                    'Nenhuma resposta encontrada.'
                 );
 
                 return;
 
             }
 
-            console.log(
-                '📤 Iniciando sincronização...'
+            // 🔥 SALVA SQLITE
+            await salvarRespostasOffline(
+                respostas
             );
 
-            const res: any =
-                await enviarRespostas(
-                    respostas
-                );
-
             console.log(
-                '✅ Retorno servidor:',
-                res
+                '✅ Dados salvos no SQLite'
             );
 
             setStatus(
-                `✅ Sincronizado (${res?.recebidos || 0})`
+                '✅ Salvo no SQLite com sucesso'
             );
 
             Alert.alert(
                 'Sucesso',
-                `Dados enviados com sucesso!\n\nRecebidos: ${
-                    res?.recebidos || 0
-                }`
+                'Respostas armazenadas no SQLite!'
             );
 
         } catch (e: any) {
 
             console.log(
-                '❌ erro sincronização:',
+                '❌ erro sync:',
                 e
             );
 
@@ -102,7 +138,7 @@ export default function Sincronizar() {
             Alert.alert(
                 'Erro',
                 e?.message ||
-                'Não foi possível sincronizar.\n\nVerifique:\n- Hotspot do pai ativo\n- Ambos conectados na mesma rede\n- Servidor iniciado no tablet pai'
+                'Falha ao salvar'
             );
 
         } finally {
@@ -122,11 +158,7 @@ export default function Sincronizar() {
             <View style={styles.center}>
 
                 <Text style={styles.title}>
-                    Scanner de Prova OMR
-                </Text>
-
-                <Text style={styles.subtitle}>
-                    Status:
+                    Sincronização de Respostas
                 </Text>
 
                 <Text style={styles.status}>
@@ -139,16 +171,12 @@ export default function Sincronizar() {
                         <ActivityIndicator
                             size="large"
                             color="#2563eb"
-                            style={{
-                                marginTop: 20
-                            }}
                         />
 
                     ) : (
 
                         <TouchableOpacity
                             style={styles.button}
-                            activeOpacity={0.8}
                             onPress={handleSync}
                         >
 
@@ -188,11 +216,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#111827',
         marginBottom: 20
-    },
-
-    subtitle: {
-        fontSize: 16,
-        color: '#6b7280'
     },
 
     status: {

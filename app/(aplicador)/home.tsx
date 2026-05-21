@@ -58,72 +58,76 @@ export default function Home() {
     useState<ItemFiltro | null>(null);
 
   // 🔥 DOWNLOAD
-  const handleDownload = async (item: any) => {
+const handleDownload = async (item: any) => {
 
-    try {
+  try {
 
-      console.log('ITEM DOWNLOAD:', item);
+    console.log('ITEM DOWNLOAD:', item);
 
-      const response = await baixarProva({
-        id_avaliacao: Number(item.id_prova ?? -1),
-        id_anoletivo: Number(item.id_anoletivo ?? -1),
-        id_serie: Number(item.serie ?? -1),
-        id_escola: Number(item.id_escola ?? -1),
-        descricao_turma: item.turma,
-        id_caderno_prova_disciplina: Number(
-          item.id_caderno_prova_disciplina ?? -1
-        )
-      });
+    const response = await baixarProva({
+      id_avaliacao: Number(item.id_prova ?? -1),
+      id_anoletivo: Number(item.id_anoletivo ?? -1),
+      id_serie: Number(item.serie ?? -1),
+      id_escola: Number(item.id_escola ?? -1),
+      descricao_turma: item.turma,
+      id_caderno_prova_disciplina: Number(
+        item.id_caderno_prova_disciplina ?? -1
+      )
+    });
 
-      console.log('✅ Prova baixada:', response);
+    console.log('✅ Prova baixada RAW:', response);
 
-      // 🔥 CONVERTE JSON
-      const provas =
-        typeof response?.dados === 'string'
-          ? JSON.parse(response.dados)
-          : response?.dados;
+    // =====================================================
+    // 🔥 AJUSTE DEFINITIVO DO PARSE (SEU CASO REAL)
+    // =====================================================
 
-      // 🔥 VALIDA
-      if (
-        !Array.isArray(provas) ||
-        provas.length === 0
-      ) {
+    let provasRaw = response?.dados;
 
-        Alert.alert(
-          'Aviso',
-          'Nenhuma prova encontrada'
-        );
-
-        return;
-
-      }
-
-      // 🔥 SALVA SQLITE
-      await salvarProvaOffline(provas);
-
-      console.log('💾 Prova salva offline');
-
-      Alert.alert(
-        'Sucesso',
-        'Prova salva offline com sucesso'
-      );
-
-    } catch (error: any) {
-
-      console.log(
-        '❌ Erro ao baixar prova:',
-        error?.message
-      );
-
-      Alert.alert(
-        'Erro',
-        'Erro ao baixar prova'
-      );
-
+    // 1️⃣ primeiro nível: string -> JSON
+    if (typeof provasRaw === 'string') {
+      provasRaw = JSON.parse(provasRaw);
     }
 
-  };
+    // 2️⃣ segurança extra (caso backend venha duplo encode)
+    if (typeof provasRaw === 'string') {
+      provasRaw = JSON.parse(provasRaw);
+    }
 
+    // 3️⃣ garante array
+    const provas = Array.isArray(provasRaw) ? provasRaw : [];
+
+    console.log('📦 PROVAS FINAL NORMALIZADAS:', provas);
+
+    if (provas.length === 0) {
+      Alert.alert('Aviso', 'Nenhuma prova encontrada');
+      return;
+    }
+
+    // =====================================================
+    // 🔥 SALVA SQLITE
+    // =====================================================
+
+    await salvarProvaOffline(provas);
+
+    console.log('💾 Prova salva offline com sucesso');
+
+    Alert.alert(
+      'Sucesso',
+      'Prova salva offline com sucesso'
+    );
+
+  } catch (error: any) {
+
+    console.log('❌ Erro ao baixar prova:', error);
+
+    Alert.alert(
+      'Erro',
+      error?.message || 'Erro ao baixar prova'
+    );
+
+  }
+
+};
   const carregarProvas = useCallback(async () => {
 
     try {
