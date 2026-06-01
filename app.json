@@ -4,7 +4,7 @@
     "slug": "gabarito-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/teste.png",
+    "icon": "@/src/assets/images/teste.png",
     "scheme": "gabaritoapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -18,9 +18,9 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/teste.png",
-        "backgroundImage": "./assets/images/teste.png",
-        "monochromeImage": "./assets/images/teste.png"
+        "foregroundImage": "@/src/assets/images/teste.png",
+        "backgroundImage": "@/src/assets/images/teste.png",
+        "monochromeImage": "@/src/assets/images/teste.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -28,14 +28,14 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/teste.png"
+      "favicon": "@/src/assets/images/teste.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/teste.png",
+          "image": "@/src/assets/images/teste.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
