@@ -50,4 +50,16 @@ export function iniciarDb() {
             FOREIGN KEY (id_prova) REFERENCES prova (id_prova)
         );
     `);
+
+    db.execAsync(`
+        CREATE TABLE IF NOT EXISTS 'prova_sync'(
+            id_prova_sync INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_prova      INTEGER,
+            qr_code       TEXT,
+            arq_prova     TEXT,
+            sincronizado  INTEGER NOT NULL DEFAULT 0,
+            data_sync     DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (id_prova) REFERENCES prova (id_prova)
+        );
+    `);
 }
