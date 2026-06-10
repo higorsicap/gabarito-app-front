@@ -293,22 +293,36 @@ export default function Scanner() {
     };
 
     // ── Abrir DocumentScanner ─────────────────────────────────────────────────
-    const abrirScanner = async (qr: DadosQR) => {
-        try {
-            const result = await DocumentScanner.scanDocument();
-            if (!result?.scannedImages?.length) {
-                Alert.alert('Nenhum documento detectado', 'Tente enquadrar melhor a folha.');
-                setJaLeu(false);
-                return;
-            }
-            setImagemPreview(result.scannedImages[0]);
-            fadeIn();
-            setEtapa('preview');
-        } catch {
-            Alert.alert('Erro', 'Falha ao abrir o scanner.');
+const abrirScanner = async (qr: DadosQR) => {
+    try {
+        const result = await DocumentScanner.scanDocument();
+
+        if (!result?.scannedImages?.length) {
+            Alert.alert(
+                'Nenhum documento detectado',
+                'Tente enquadrar melhor a folha.'
+            );
             setJaLeu(false);
+            return;
         }
-    };
+
+        setImagemPreview(result.scannedImages[0]);
+        fadeIn();
+        setEtapa('preview');
+    } catch (error: any) {
+        console.error('Erro ao abrir scanner:', error);
+
+        Alert.alert(
+            'Erro',
+            error?.message ||
+            error?.toString() ||
+            JSON.stringify(error) ||
+            'Falha ao abrir o scanner.'
+        );
+
+        setJaLeu(false);
+    }
+};
 
     // ── Confirmar imagem → adicionar mais ─────────────────────────────────────
     const confirmarEAdicionarMais = () => {
