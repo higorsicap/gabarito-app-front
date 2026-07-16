@@ -1,26 +1,27 @@
-import { useAuth } from '@/src/contexts/AuthContext';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useAuth } from "@/src/contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
-import { useRef, useState } from 'react';
+import { useRef, useState } from "react";
 import {
     Animated,
-    BackHandler,
     Dimensions,
-    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
-} from 'react-native';
+    View,
+} from "react-native";
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 export default function BottomNav() {
     const { logout } = useAuth();
 
     const [open, setOpen] = useState(false);
-    const translateX = useState(new Animated.Value(-width))[0]; // 🔥 largura total
+
+    const translateX = useRef(
+        new Animated.Value(-width)
+    ).current;
 
     const toggleMenu = () => {
         Animated.timing(translateX, {
@@ -32,40 +33,33 @@ export default function BottomNav() {
         setOpen(!open);
     };
 
+    const navigateTo = (route: any) => {
+        toggleMenu();
+
+        setTimeout(() => {
+            router.push(route);
+        }, 250);
+    };
+
     const handleLogout = async () => {
         toggleMenu();
 
         setTimeout(async () => {
             await logout();
-            router.replace('/');
-        }, 200);
-    };
-
-    const lastPress = useRef(0);
-
-    const handleBack = () => {
-        if (Platform.OS !== 'android') return;
-
-        const now = Date.now();
-
-        if (now - lastPress.current < 2000) {
-            BackHandler.exitApp();
-            return;
-        }
-
-        lastPress.current = now;
+            router.replace("/");
+        }, 250);
     };
 
     return (
         <>
-            {/* 🔥 HEADER */}
+            {/* HEADER */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={toggleMenu}>
                     <Ionicons name="menu" size={28} color="#fff" />
                 </TouchableOpacity>
             </View>
 
-            {/* 🔥 OVERLAY FULL */}
+            {/* OVERLAY */}
             {open && (
                 <View style={styles.overlayContainer}>
                     <TouchableOpacity
@@ -76,155 +70,148 @@ export default function BottomNav() {
                 </View>
             )}
 
-            {/* 🔥 MENU FULLSCREEN */}
+            {/* MENU */}
             <Animated.View
                 style={[
                     styles.menu,
-                    { transform: [{ translateX }] }
+                    {
+                        transform: [{ translateX }],
+                    },
                 ]}
             >
-                <TouchableOpacity
-                    style={styles.item}
-                    onPress={() => {
-                        toggleMenu();
-                        setTimeout(() => router.push('/home'), 200);
-                    }}
-                >
-                    <Ionicons name="home" size={22} color="#333" />
-                    <Text style={styles.text}>Home</Text>
-                </TouchableOpacity>
+                <View>
+                    <TouchableOpacity
+                        style={styles.item}
+                        onPress={() => navigateTo("/home")}
+                    >
+                        <Ionicons name="home" size={22} color="#333" />
+                        <Text style={styles.text}>Início</Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={styles.item}
-                    onPress={() => router.push('/scanner')
-                    }
-                >
-                    <Ionicons name="scan" size={22} color="#333" />
-                    <Text style={styles.text}>Scanner</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.item}
+                        onPress={() => navigateTo("/saed")}
+                    >
+                        <Ionicons name="scan" size={22} color="#333" />
+                        <Text style={styles.text}>Aplicação SAED</Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={styles.item}
-                    onPress={() => router.push('/baixar')
-                    }
-                >
-                    <Ionicons name="scan" size={22} color="#333" />
-                    <Text style={styles.text}>Baixados</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.item}
+                        onPress={() => navigateTo("/baixar")}
+                    >
+                        <Ionicons name="business" size={22} color="#333" />
+                        <Text style={styles.text}>Aplicação Interna</Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={styles.item}
-                    onPress={() => router.push('/sincronizador')
-                    }
-                >
-                    <Ionicons name="sync-circle-outline" size={22} color="#333" />
-                    <Text style={styles.text}>Sincronizador</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.item}
+                        onPress={() => navigateTo("/aplicarProva")}
+                    >
+                        <Ionicons
+                            name="sync-circle-outline"
+                            size={22}
+                            color="#333"
+                        />
+                        <Text style={styles.text}>
+                            Sincronizar Resultados
+                        </Text>
+                    </TouchableOpacity>
+                </View>
 
+                {/* LOGOUT */}
                 <TouchableOpacity
-                    style={styles.item}
-                    onPress={() => router.push('/sincronizar')
-                    }
-                >
-                    <Ionicons name="sync-outline" size={22} color="#333" />
-                    <Text style={styles.text}>Sincronizar</Text>
-                </TouchableOpacity>
-
-                {/* 🔥 LOGOUT */}
-                <TouchableOpacity
-                    style={[styles.item, { marginTop: 40 }]}
+                    style={styles.logoutItem}
                     onPress={handleLogout}
                 >
-                    <Ionicons name="log-out-outline" size={24} color="red" />
-                    <Text style={[styles.text, { color: 'red' }]}>
-                        Sair
-                    </Text>
+                    <Ionicons
+                        name="log-out-outline"
+                        size={24}
+                        color="red"
+                    />
+                    <Text style={styles.logoutText}>Sair</Text>
                 </TouchableOpacity>
             </Animated.View>
-
-            <TouchableOpacity style={styles.btn} onPress={handleBack}>
-                <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
         </>
     );
 }
 
 const styles = StyleSheet.create({
     header: {
-        position: 'absolute',
+        position: "absolute",
         top: 0,
         left: 0,
         right: 0,
 
         height: 70,
-        backgroundColor: '#4dabf7',
+        backgroundColor: "#4dabf7",
 
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         paddingHorizontal: 15,
         paddingTop: 20,
 
         zIndex: 30,
     },
 
-    title: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginLeft: 10
-    },
-
-    // 🔥 MENU AGORA OCUPA TUDO
     menu: {
-        position: 'absolute',
+        position: "absolute",
         top: 0,
         left: 0,
-        width: 250,
-        height: '100%',
-        backgroundColor: '#fff',
+
+        width: 260,
+        height: height,
+
+        backgroundColor: "#fff",
+
         paddingTop: 100,
         paddingHorizontal: 20,
+
         zIndex: 20,
         elevation: 10,
+
+        justifyContent: "space-between",
+        paddingBottom: 40,
     },
 
     item: {
+        flexDirection: "row",
+        alignItems: "center",
         marginBottom: 25,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 15,
     },
 
     text: {
         fontSize: 18,
-        fontWeight: '500'
+        fontWeight: "500",
+        marginLeft: 15,
+        color: "#333",
     },
 
-    // 🔥 OVERLAY REAL FULLSCREEN
+    logoutItem: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+
+    logoutText: {
+        fontSize: 18,
+        fontWeight: "500",
+        marginLeft: 15,
+        color: "red",
+    },
+
     overlayContainer: {
-        position: 'absolute',
+        position: "absolute",
         top: 0,
         left: 0,
-        width: width,
-        height: '100%',
+
+        width,
+        height,
+
         zIndex: 15,
     },
 
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-    },
-
-    btn: {
-        position: 'absolute',
-
-        top: 25,     // 🔥 ajusta conforme header do menu
-        right: 20,   // 🔥 AGORA sim fica na direita
-
-        zIndex: 50,
-
-        backgroundColor: '#4dabf7',
-        padding: 10,
-        borderRadius: 8,
+        backgroundColor: "rgba(0,0,0,0.4)",
     },
 });

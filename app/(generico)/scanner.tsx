@@ -1,4 +1,4 @@
-import BottomNavProf from '@/src/components/BottomNavProf';
+import BottomNav from '@/src/components/BottomNav';
 import {
     contarPendentes,
     copiarImagemParaPermanente,
@@ -468,7 +468,7 @@ const abrirScanner = async (qr: DadosQR) => {
     if (!permCamera.granted) {
         return (
             <View style={[s.centro, { paddingTop: insets.top }]}>
-                <BottomNavProf />
+                <BottomNav />
                 <Text style={s.textoInfo}>Precisamos da permissão da câmera</Text>
                 <Pressable style={[s.botao, { marginTop: 20 }]} onPress={pedirPermCamera}>
                     <Text style={s.botaoTexto}>Conceder permissão</Text>
@@ -481,7 +481,7 @@ const abrirScanner = async (qr: DadosQR) => {
     if (etapa === 'inicio') {
         return (
             <View style={s.tela}>
-                <BottomNavProf />
+                <BottomNav />
                 <BannerRede online={online} pendentes={pendentes} onSincronizar={sincronizarPendentes} />
                 <View style={si.container}>
                     <View style={si.icone}>
@@ -532,7 +532,7 @@ const abrirScanner = async (qr: DadosQR) => {
     if (etapa === 'qrcode') {
         return (
             <View style={s.tela}>
-                <BottomNavProf />
+                <BottomNav />
                 <BannerRede online={online} pendentes={pendentes} onSincronizar={sincronizarPendentes} />
                 <View style={[s.cabecalho, { paddingTop: insets.top + 12 }]}>
                     <Text style={s.titulo}>Leitor de Gabarito</Text>
@@ -588,7 +588,7 @@ const abrirScanner = async (qr: DadosQR) => {
         const totalNaFila = fila.length + 1;
         return (
             <Animated.View style={[s.tela, { opacity: fadeAnim }]}>
-                <BottomNavProf />
+                <BottomNav />
                 <BannerRede online={online} pendentes={pendentes} onSincronizar={sincronizarPendentes} />
                 <View style={[s.cabecalho, { paddingTop: insets.top + 12 }]}>
                     <Text style={s.titulo}>Prova {totalNaFila}</Text>
@@ -640,7 +640,7 @@ const abrirScanner = async (qr: DadosQR) => {
 
         return (
             <View style={s.tela}>
-                <BottomNavProf />
+                <BottomNav />
                 <View style={[s.cabecalho, { paddingTop: insets.top + 35 }]}>
                     <Text style={s.titulo}>{isSinc ? 'Sincronizando' : 'Processando'}</Text>
                     <Text style={s.subtitulo}>
@@ -709,7 +709,7 @@ const abrirScanner = async (qr: DadosQR) => {
         const falhas   = resultados.length - sucessos;
         return (
             <Animated.View style={[s.tela, { opacity: fadeAnim }]}>
-                <BottomNavProf />
+                <BottomNav />
                 <BannerRede online={online} pendentes={pendentes} onSincronizar={sincronizarPendentes} />
                 <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={[s.badgeSucesso, falhas > 0 && s.badgeAviso]}>

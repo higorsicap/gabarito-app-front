@@ -45,7 +45,11 @@
         }
       ],
       "react-native-document-scanner-plugin",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

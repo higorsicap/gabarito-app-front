@@ -9,51 +9,35 @@ export async function salvarRespostasOffline(payload: any[]) {
             for (const item of payload) {
 
                 const {
+                    id_avaliacao_saed_mob,
                     id_aluno,
-                    nome_aluno,
-                    id_prova,
-                    respostas
+                    id_questao,
+                    id_pergunta_alternativa,
+                    descricao_alternativa
                 } = item;
 
                 // 🔥 ALUNO
                 await db.runAsync(
                     `
-                    INSERT OR IGNORE INTO aluno (
-                        id_aluno,
-                        nome_aluno,
-                        id_prova
-                    )
-                    VALUES (?, ?, ?)
+                    INSERT INTO
+                        aluno_respostas_prova_saed (
+                            id_avaliacao_saed_mob,
+                            id_aluno,
+                            id_questao,
+                            id_pergunta_alternativa,
+                            descricao_alternativa
+                        )
+                    VALUES
+                        (?, ?, ?, ?, ?)
                     `,
                     [
+                        Number(id_avaliacao_saed_mob),
                         Number(id_aluno),
-                        nome_aluno,
-                        Number(id_prova)
+                        Number(id_questao),
+                        Number(id_pergunta_alternativa),
+                        descricao_alternativa,
                     ]
                 );
-
-                // 🔥 RESPOSTAS
-                for (const r of respostas) {
-
-                    await db.runAsync(
-                        `
-                        INSERT INTO reposta_prova (
-                            id_aluno,
-                            id_prova,
-                            numero_questao,
-                            alternativa
-                        )
-                        VALUES (?, ?, ?, ?)
-                        `,
-                        [
-                            Number(id_aluno),
-                            Number(id_prova),
-                            Number(r.numero_questao),
-                            r.alternativa
-                        ]
-                    );
-
-                }
 
             }
 
@@ -78,49 +62,13 @@ export async function listarRespostasAgrupadas() {
 
     const result = await db.getAllAsync(
         `
-        SELECT DISTINCT
-            a.id_aluno,
-            a.nome_aluno,
-
-            rp.numero_questao,
-            rp.alternativa AS resposta_aluno,
-
-            p.id_prova,
-            p.id_caderno_de_prova_disciplina
-
-        FROM aluno a
-
-        JOIN reposta_prova rp
-            ON rp.id_aluno = a.id_aluno
-
-        JOIN provas p
-            ON p.id_prova = a.id_prova
-
-        ORDER BY
-            p.id_prova,
-            a.id_aluno,
-            rp.numero_questao
+        SELECT DISTINCT 
+            arps.id_aluno,
+            arps.id_questao,
+            arps.id_pergunta_alternativa,
+            arps.id_avaliacao_saed_mob 
+        FROM aluno_respostas_prova_saed arps 
         `
-    );
-
-    return result;
-
-}
-
-export async function buscarGabaritoProva(
-    id_prova: number
-) {
-
-    const result = await db.getAllAsync(
-        `
-        SELECT
-            numero_questao,
-            alternativa
-        FROM prova_questionario
-        WHERE id_prova = ?
-        ORDER BY numero_questao
-        `,
-        [id_prova]
     );
 
     return result;

@@ -1,4 +1,4 @@
-import BottomNavProf from '@/src/components/BottomNavProf';
+import BottomNav from '@/src/components/BottomNav';
 import { useMemo } from 'react';
 import {
     Dimensions,
@@ -63,24 +63,22 @@ export default function HomeProfessor() {
         >
 
             {/* 🔥 NAV */}
-            <BottomNavProf />
+            <BottomNav />
 
             {/* 🔥 CONTEÚDO */}
             <View style={styles.content}>
 
                 <View style={styles.header}>
-                    <Text style={styles.title}>
+                    {/* <Text style={styles.title}>
                         Dashboard do Professor:
-                    </Text>
+                    </Text> */}
                 </View>
 
                 {/* 🔥 CARD */}
                 <View style={styles.card}>
-
                     <Text style={styles.cardTitle}>
-                        Provas Aplicadas
+                        Avaliação Aplicadas
                     </Text>
-
                     <BarChart
                         data={chartData}
                         width={
@@ -96,49 +94,24 @@ export default function HomeProfessor() {
                         chartConfig={{
                             backgroundGradientFrom: '#ffffff',
                             backgroundGradientTo: '#ffffff',
-
                             decimalPlaces: 0,
-
                             color: (opacity = 1) =>
                                 `rgba(93, 143, 214, ${opacity})`,
-
                             labelColor: (opacity = 1) =>
                                 `rgba(0, 0, 0, ${opacity})`,
-
                             propsForBackgroundLines: {
                                 stroke: '#e5e5e5'
                             },
-
                             propsForLabels: {
                                 fontSize: 12
                             },
-
                             barPercentage: 0.6
                         }}
                         style={styles.chart}
                     />
-
                 </View>
-
-                <View style={styles.content}>
-
-                    <Text style={styles.title}>
-                        Provas disponiveis
-                    </Text>
-
-                    <View style={styles.cardProva}>
-                        <Text style={styles.cardTitle}>
-                            Prova de Matemática - 10 questões
-                        </Text>
-                        <Text>teste</Text>
-                    </View>
-
-                </View>
-
             </View>
-
         </SafeAreaView>
-
     );
 
 }

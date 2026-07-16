@@ -19,32 +19,19 @@ import {
 import { iniciarDb } from '@/src/database/migrations';
 
 function AuthGuard() {
-
-    const {
-        user,
-        loading
-    } = useAuth();
-
-    const segments =
-        useSegments();
-
-    const router =
-        useRouter();
+    const { user, loading } = useAuth();
+    const segments = useSegments();
+    const router = useRouter();
 
     // 🔥 inicia banco
     useEffect(() => {
-
         iniciarDb();
-
     }, []);
 
     useEffect(() => {
-
         if (loading) return;
-
         const group =
             segments[0];
-
         const inAuthGroup =
             group === '(auth)';
 
@@ -53,13 +40,10 @@ function AuthGuard() {
         // =====================================
 
         if (!user && !inAuthGroup) {
-
             router.replace(
                 '/(auth)/login'
             );
-
             return;
-
         }
 
         // =====================================
@@ -77,16 +61,12 @@ function AuthGuard() {
                 router.replace(
                     '/(professor)/home'
                 );
-
                 return;
-
             }
-
             // 🔥 APLICADOR
             router.replace(
-                '/(aplicador)/home'
+                '/(aplicador)/saed'
             );
-
             return;
 
         }
@@ -103,9 +83,7 @@ function AuthGuard() {
     // =====================================
 
     if (loading) {
-
         return (
-
             <View
                 style={{
                     flex: 1,
@@ -113,15 +91,11 @@ function AuthGuard() {
                     alignItems: 'center'
                 }}
             >
-
                 <ActivityIndicator
                     size="large"
                 />
-
             </View>
-
         );
-
     }
 
     // =====================================
@@ -129,13 +103,11 @@ function AuthGuard() {
     // =====================================
 
     return (
-
         <Stack
             screenOptions={{
                 headerShown: false
             }}
         />
-
     );
 
 }
@@ -143,13 +115,9 @@ function AuthGuard() {
 export default function RootLayout() {
 
     return (
-
         <AuthProvider>
-
             <AuthGuard />
-
         </AuthProvider>
-
     );
 
 }

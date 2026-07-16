@@ -9,25 +9,31 @@ export async function salvarProvaOffline(
         // 🔥 INSERT PROVA
         const result = await db.runAsync(
             `
-            INSERT INTO provas (
-                nome_escola,
-                id_anoletivo,
-                id_serie,
-                id_avaliacao,
-                descricao_turma,
-                id_caderno_de_prova_disciplina
-            )
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO
+                avaliacao_saed_mob (
+                    id_avaliacao_saed,
+                    id_anoletivo,
+                    id_cliente,
+                    id_serie,
+                    ordem,
+                    descricao_avaliacao,
+                    data_inicio_avaliacao,
+                    data_fim_avaliacao,
+                    tempo_prova
+                )
+            VALUES
+                (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
-                prova.nome_escola,
+                Number(prova.id_avaliacao_saed),
                 Number(prova.id_anoletivo),
+                Number(prova.id_cliente),
                 Number(prova.id_serie),
-                Number(prova.id_avaliacao),
-                prova.descricao_turma,
-
-                // 🔥 AJUSTE AQUI
-                Number(prova.id_caderno_prova_disciplina)
+                Number(prova.ordem),
+                prova.descricao_avaliacao,
+                prova.data_inicio_avaliacao,
+                prova.data_fim_avaliacao,
+                prova.tempo_prova
             ]
         );
 
@@ -38,17 +44,26 @@ export async function salvarProvaOffline(
 
             await db.runAsync(
                 `
-                INSERT INTO prova_questionario (
-                    id_prova,
-                    numero_questao,
-                    alternativa
-                )
-                VALUES (?, ?, ?)
+                INSERT INTO
+                    ava_questoes_saed_mob (
+                        id_avaliacao_saed_mob,
+                        id_questao,
+                        conteudo,
+                        id_pergunta_alternativa,
+                        descricao_alternativa,
+                        esta_correto
+                    )
+                VALUES
+                    (?, ?, ?, ?, ?, ?)
                 `,
                 [
                     Number(idProva),
-                    Number(questao.numero_questao),
-                    questao.alternativa
+                    Number(questao.id_avaliacao_saed_mob),
+                    Number(questao.id_questao),
+                    questao.conteudo,
+                    Number(questao.id_pergunta_alternativa),
+                    questao.descricao_alternativa,
+                    Number(questao.esta_correto),
                 ]
             );
 

@@ -3,63 +3,59 @@ import { db } from "./database";
 export function iniciarDb() {
 
     db.execSync(`
-        CREATE TABLE IF NOT EXISTS provas (
-            id_prova INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome_escola TEXT,
+        CREATE TABLE 
+            IF NOT EXISTS avaliacao_saed_mob (
+            id_avaliacao_saed_mob INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_avaliacao_saed INTEGER,
             id_anoletivo INTEGER,
+            id_cliente INTEGER,
             id_serie INTEGER,
-            id_avaliacao INTEGER,
-            id_escola INTEGER,
-            id_municipio INTEGER,
-            descricao_turma TEXT,
-            id_caderno_de_prova_disciplina INTEGER
+            ordem INTEGER,
+            descricao_avaliacao TEXT,
+            data_inicio_avaliacao TEXT,
+            data_fim_avaliacao TEXT,
+            tempo_prova TEXT,
+            is_sincronizado INTEGER DEFAULT 0
         );
     `);
 
     db.execSync(`
-        CREATE TABLE IF NOT EXISTS prova_questionario (
-            id_prova_questionario INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_prova INTEGER NOT NULL,
-            numero_questao INTEGER,
-            alternativa TEXT,
-            FOREIGN KEY (id_prova)
-                REFERENCES provas(id_prova)
-                ON DELETE CASCADE
-        );
+        CREATE TABLE
+            IF NOT EXISTS ava_questoes_saed_mob (
+                id_ava_questoes_saed_mob INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_avaliacao_saed_mob INTEGER NOT NULL,
+                id_questao INTEGER,
+                conteudo TEXT,
+                id_pergunta_alternativa INTEGER,
+                descricao_alternativa TEXT,
+                esta_correto INTEGER,
+                FOREIGN KEY (id_avaliacao_saed_mob) REFERENCES avaliacao_saed_mob (id_avaliacao_saed_mob) ON DELETE CASCADE
+            );
     `);
 
     db.execAsync(`
-        CREATE TABLE IF NOT EXISTS 'aluno' (
-            id_aluno INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_turma INTEGER,
-            nome_aluno TEXT,
-            cpf_aluno TEXT,
-            id_prova INTEGER,
-            FOREIGN KEY (id_prova) REFERENCES prova (id_prova)
-        );
+        CREATE TABLE
+            IF NOT EXISTS 'aluno_respostas_prova_saed' (
+                id_aluno_respostas_prova_saed INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_avaliacao_saed_mob INTEGER NOT NULL,
+                id_aluno INTEGER,
+                id_questao INTEGER,
+                id_pergunta_alternativa INTEGER,
+                descricao_alternativa TEXT, 
+                FOREIGN KEY (id_avaliacao_saed_mob) REFERENCES avaliacao_saed_mob (id_avaliacao_saed_mob)
+            );
     `);
 
     db.execAsync(`
-        CREATE TABLE IF NOT EXISTS 'reposta_prova' (
-            id_resposta_prova INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_aluno INTEGER,
-            id_prova INTEGER,
-            numero_questao INTEGER,
-            alternativa TEXT,
-            FOREIGN KEY (id_aluno) REFERENCES aluno (id_aluno),
-            FOREIGN KEY (id_prova) REFERENCES prova (id_prova)
-        );
-    `);
-
-    db.execAsync(`
-        CREATE TABLE IF NOT EXISTS 'prova_sync'(
-            id_prova_sync INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_prova      INTEGER,
-            qr_code       TEXT,
-            arq_prova     TEXT,
-            sincronizado  INTEGER NOT NULL DEFAULT 0,
-            data_sync     DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (id_prova) REFERENCES prova (id_prova)
-        );
+        CREATE TABLE
+            IF NOT EXISTS 'prova_sync_saed' (
+                id_prova_sync INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_ava_questoes_saed_mob INTEGER,
+                qr_code TEXT,
+                arq_prova TEXT,
+                sincronizado INTEGER NOT NULL DEFAULT 0,
+                data_sync DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_ava_questoes_saed_mob) REFERENCES ava_questoes_saed_mob (id_ava_questoes_saed_mob)
+            ); 
     `);
 }
