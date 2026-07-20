@@ -106,6 +106,14 @@ export default function BottomNav() {
 
                     <TouchableOpacity
                         style={styles.item}
+                        onPress={() => navigateTo("/sincronizador")}
+                    >
+                        <Ionicons name="business" size={22} color="#333" />
+                        <Text style={styles.text}>Sincronizador</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.item}
                         onPress={() => navigateTo("/aplicarProva")}
                     >
                         <Ionicons

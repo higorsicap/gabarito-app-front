@@ -6,7 +6,7 @@ export async function salvarProvaOffline(
 
     for (const prova of dados) {
 
-        // 🔥 INSERT PROVA
+        // 1. INSERE A PROVA
         const result = await db.runAsync(
             `
             INSERT INTO
@@ -39,34 +39,48 @@ export async function salvarProvaOffline(
 
         const idProva = result.lastInsertRowId;
 
-        // 🔥 QUESTÕES
-        for (const questao of prova.questoes) {
+        // 2. CORREÇÃO DO "DOUBLE JSON":
+        // Se 'questoes' for uma String (texto), nós fazemos o parse dela para virar um Array.
+        // Se por acaso já vier como Array no futuro, o código continua funcionando perfeitamente.
+        const listaQuestoes = typeof prova.questoes === 'string'
+            ? JSON.parse(prova.questoes)
+            : prova.questoes;
 
-            await db.runAsync(
-                `
-                INSERT INTO
-                    ava_questoes_saed_mob (
-                        id_avaliacao_saed_mob,
-                        id_questao,
-                        conteudo,
-                        id_pergunta_alternativa,
-                        descricao_alternativa,
-                        esta_correto
-                    )
-                VALUES
-                    (?, ?, ?, ?, ?, ?)
-                `,
-                [
-                    Number(idProva),
-                    Number(questao.id_avaliacao_saed_mob),
-                    Number(questao.id_questao),
-                    questao.conteudo,
-                    Number(questao.id_pergunta_alternativa),
-                    questao.descricao_alternativa,
-                    Number(questao.esta_correto),
-                ]
-            );
+        // 3. SEU LOOP DE QUESTÕES
+        for (const questao of listaQuestoes) {
 
+            // Extrai as alternativas da questão (também fazendo o parse caso venha como string)
+            const alternativas = typeof questao.alternativas === 'string'
+                ? JSON.parse(questao.alternativas)
+                : (questao.alternativas || []);
+
+            // Loop interno para percorrer cada alternativa desta questão
+            for (const alt of alternativas) {
+
+                await db.runAsync(
+                    `
+            INSERT INTO
+                ava_questoes_saed_mob (
+                    id_avaliacao_saed_mob,
+                    id_questao,
+                    conteudo,
+                    id_pergunta_alternativa,
+                    descricao_alternativa,
+                    esta_correto
+                )
+            VALUES
+                (?, ?, ?, ?, ?, ?)
+            `,
+                    [
+                        Number(idProva),
+                        Number(questao.id_questao),
+                        questao.conteudo,
+                        Number(alt.id_pergunta_alternativa), // Agora acessamos de 'alt'
+                        alt.descricao_alternativa,           // Agora acessamos de 'alt'
+                        Number(alt.esta_correto),            // Agora acessamos de 'alt'
+                    ]
+                );
+            }
         }
 
     }

@@ -84,3 +84,9 @@ export async function listarEscolas(params?: {
         id_aplicador: params?.id_aplicador ?? -1 // 🔥 IMPORTANTE
     });
 }
+
+export async function provasDisponiveis() {
+    return postForm({
+        s: 7
+    });
+}
