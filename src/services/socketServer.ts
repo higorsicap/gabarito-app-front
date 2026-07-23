@@ -1,6 +1,9 @@
 import NetInfo from '@react-native-community/netinfo';
 import DeviceInfo from 'react-native-device-info';
 import HTTPServer from 'react-native-http-bridge-refurbished';
+// 💡 Opcional: Para precisão máxima no Android Hotspot, instale `react-native-network-info`:
+// npm install react-native-network-info
+import { NetworkInfo } from 'react-native-network-info';
 
 let serverStarted = false;
 
@@ -19,24 +22,43 @@ let clientesConectados = 0;
 // 📱 dispositivos conectados
 let dispositivos: any[] = [];
 
-// 🔍 Função para obter o IP real da interface Wi-Fi / Hotspot
+// 🔍 Função para obter o IP real da interface Wi-Fi / Hotspot / Gateway
 async function getRealIpAddress(): Promise<string> {
     try {
-        // 1. Tenta via NetInfo (Trata erro TS2322 com o typeof)
+        // 1. Tenta obter IPv4 ou Gateway diretamente (ideal para modo Roteador/Hotspot no Android)
+        if (NetworkInfo) {
+            const ipv4 = await NetworkInfo.getIPV4Address();
+            if (ipv4 && ipv4 !== '0.0.0.0' && ipv4 !== '127.0.0.1') {
+                return ipv4;
+            }
+
+            const gatewayIp = await NetworkInfo.getGatewayIPAddress();
+            if (gatewayIp && gatewayIp !== '0.0.0.0' && gatewayIp !== '127.0.0.1') {
+                return gatewayIp;
+            }
+        }
+    } catch (e) {
+        // Ignora caso a lib react-native-network-info não esteja instalada
+    }
+
+    try {
+        // 2. Tenta via NetInfo da comunidade
         const netState = await NetInfo.fetch();
         if (netState.details) {
             const details = netState.details as { ipAddress?: string };
+            const ip = details.ipAddress;
+
             if (
-                typeof details.ipAddress === 'string' &&
-                details.ipAddress &&
-                details.ipAddress !== '0.0.0.0' &&
-                details.ipAddress !== '127.0.0.1'
+                typeof ip === 'string' &&
+                ip &&
+                ip !== '0.0.0.0' &&
+                ip !== '127.0.0.1'
             ) {
-                return details.ipAddress;
+                return ip;
             }
         }
 
-        // 2. Tenta via DeviceInfo
+        // 3. Tenta via DeviceInfo
         const deviceIp = await DeviceInfo.getIpAddress();
         if (
             typeof deviceIp === 'string' &&
@@ -47,12 +69,11 @@ async function getRealIpAddress(): Promise<string> {
             return deviceIp;
         }
 
-        // 3. Fallback: Se o Android estiver em modo Hotspot/Roteador,
-        // o IP padrão que o Gateway/Servidor assume para os clientes é 10.19.165.1 ou 192.168.43.1
-        return '10.19.165.1';
+        // 4. Fallback: Se for Gateway dinâmico do Android ou Roteador padrão
+        return '10.19.165.166'; 
     } catch (e) {
         console.log('⚠️ Erro ao capturar IP local:', e);
-        return '10.19.165.1';
+        return '10.19.165.166';
     }
 }
 
@@ -228,24 +249,18 @@ export async function startServer() {
                 // =====================================
                 // 🔥 GET /datahora
                 // =====================================
-                if (
-                    request.type === 'GET' &&
-                    request.url === '/datahora'
-                ) {
-                    const serverInfo = {
-                        data: new Date().toISOString()
-                    };
+                if (request.type === 'GET' && request.url === '/datahora') {
+                    const agora = new Date().toLocaleTimeString('pt-BR');
 
                     HTTPServer.respond(
                         request.requestId,
                         200,
                         'application/json',
                         JSON.stringify({
-                            status: 'online',
-                            servidor: serverInfo
+                            horaRecebimento: agora,
+                            timestamp: Date.now()
                         })
                     );
-
                     return;
                 }
 
