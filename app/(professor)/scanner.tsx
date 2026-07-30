@@ -5,7 +5,7 @@ import {
     marcarSincronizado,
     obterPendentes,
     salvaGabarito,
-    type ProvaSync,
+    type prova_sync_saed,
 } from '@/src/database/services/leitorGabaritoRepository';
 import NetInfo from '@react-native-community/netinfo';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -361,9 +361,9 @@ const abrirScanner = async (qr: DadosQR) => {
     const salvarOffline = async (filaParaSalvar: ProvaFila[]) => {
         try {
             // Copia imagens do cache para diretório permanente antes de salvar
-            const registros: ProvaSync[] = await Promise.all(
+            const registros: prova_sync_saed[] = await Promise.all(
                 filaParaSalvar.map(async p => ({
-                    id_prova:     Number(p.dadosQR.id ?? p.dadosQR.raw),
+                    id_avaliacao_saed_mob:     Number(p.dadosQR.id ?? p.dadosQR.raw),
                     qr_code:      p.dadosQR.raw,
                     arq_prova:    await copiarImagemParaPermanente(p.imagemUri),
                     data_sync:    new Date().toISOString(),
@@ -396,14 +396,14 @@ const abrirScanner = async (qr: DadosQR) => {
             const label = parsearQR(prova.qr_code).titulo ?? prova.qr_code;
             setProgresso(prev => ({ ...prev, itemAtual: label, imagemAtual: prova.arq_prova }));
             try {
-                const retorno = await enviarUmaProva(prova.arq_prova, String(prova.id_prova));
-                if (retorno.sucesso && prova.id) {
-                    await marcarSincronizado(prova.id, prova.arq_prova);
+                const retorno = await enviarUmaProva(prova.arq_prova, String(prova.id_avaliacao_saed_mob));
+                if (retorno.sucesso && prova.id_prova_sync) {
+                    await marcarSincronizado(prova.id_prova_sync, prova.arq_prova);
                 }
-                novosResultados.push({ id: prova.id ?? 0, dadosQR: parsearQR(prova.qr_code), retorno });
+                novosResultados.push({ id: prova.id_prova_sync ?? 0, dadosQR: parsearQR(prova.qr_code), retorno });
             } catch (err) {
                 const msg = err instanceof Error ? err.message : 'Erro desconhecido';
-                novosResultados.push({ id: prova.id ?? 0, dadosQR: parsearQR(prova.qr_code), retorno: { sucesso: false, mensagem: msg } });
+                novosResultados.push({ id: prova.id_prova_sync ?? 0, dadosQR: parsearQR(prova.qr_code), retorno: { sucesso: false, mensagem: msg } });
             }
             setProgresso(prev => ({ ...prev, atual: prev.atual + 1, itemAtual: '', imagemAtual: '' }));
         }

@@ -1,12 +1,5 @@
-import { useAuth } from "@/src/contexts/AuthContext";
-import { login } from "@/src/services/loginService";
-
-import { useRouter } from "expo-router";
-import { useState } from "react";
-
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -16,75 +9,22 @@ import {
   View,
 } from "react-native";
 
-import { Ionicons } from "@expo/vector-icons";
+import { SyncModal } from "@/src/components/SyncModal";
+import { useLogin } from "@/src/ts/useLogin";
 
 export default function Login() {
-  const router = useRouter();
-  const { login: signIn } = useAuth();
-
-  const [usuario, setUsuario] = useState("");
-  const [senha, setSenha] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const [showTipoModal, setShowTipoModal] = useState(false);
-  const [modalSyncVisible, setModalSyncVisible] = useState(false);
-
-  const [tipoAcesso, setTipoAcesso] = useState<
-    "professor" | "aplicador" | null
-  >(null);
-
-  async function handleLogin() {
-    if (!usuario || !senha) {
-      Alert.alert("Atenção", "Preencha todos os campos");
-      return;
-    }
-
-    if (!tipoAcesso) {
-      Alert.alert("Atenção", "Selecione o tipo de acesso");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const res = await login(usuario, senha);
-
-      if (!res?.sucesso) {
-        Alert.alert("Erro", res?.mensagem || "Erro ao logar");
-        return;
-      }
-
-      const userData = res.recurso;
-
-      if (!userData?.id_aplicador) {
-        Alert.alert("Erro", "Usuário inválido");
-        return;
-      }
-
-      await signIn({
-        id_aplicador: userData.id_aplicador,
-        cpf_aplicador: userData.cpf_aplicador,
-        token: userData.token?.aplicador_token,
-        tipo_acesso: tipoAcesso,
-      });
-
-      Alert.alert("Sucesso", "Login realizado!");
-
-      router.replace(
-        tipoAcesso === "professor"
-          ? "/(professor)/home"
-          : "/(aplicador)/saed"
-      );
-    } catch (e: any) {
-      Alert.alert("Erro", e?.message || "Erro ao fazer login");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function sincronizarDados() {
-    Alert.alert("Sync", "Aqui você vai rodar sua sincronização");
-  }
+  const {
+    usuario,
+    setUsuario,
+    senha,
+    setSenha,
+    loading,
+    tipoAcesso,
+    setTipoAcesso,
+    showTipoModal,
+    setShowTipoModal,
+    handleLogin,
+  } = useLogin();
 
   return (
     <View style={styles.container}>
@@ -106,8 +46,8 @@ export default function Login() {
             {tipoAcesso === "professor"
               ? "Professor"
               : tipoAcesso === "aplicador"
-              ? "Aplicador"
-              : "Selecione o acesso..."}
+                ? "Aplicador"
+                : "Selecione o acesso..."}
           </Text>
         </TouchableOpacity>
 
@@ -175,50 +115,8 @@ export default function Login() {
         )}
       </View>
 
-      {/* BOTÃO SYNC FLUTUANTE (ÍCONE) */}
-      <TouchableOpacity
-        style={styles.fabSync}
-        onPress={() => setModalSyncVisible(true)}
-      >
-        <Ionicons name="sync" size={26} color="#fff" />
-      </TouchableOpacity>
-
-      {/* MODAL SYNC */}
-      <Modal
-        visible={modalSyncVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalSyncVisible(false)}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.modalSync}>
-            <Text style={styles.titulo}>Sincronização</Text>
-
-            <Text style={styles.texto}>
-              Deseja iniciar a sincronização dos dados?
-            </Text>
-
-            <View style={styles.footer}>
-              <TouchableOpacity
-                style={styles.btnCancelar}
-                onPress={() => setModalSyncVisible(false)}
-              >
-                <Text>Cancelar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.btnConfirmar}
-                onPress={() => {
-                  setModalSyncVisible(false);
-                  sincronizarDados();
-                }}
-              >
-                <Text style={{ color: "#fff" }}>Sincronizar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* MODAL DE SYNC ISOLADO */}
+      <SyncModal />
     </View>
   );
 }
@@ -314,65 +212,5 @@ const styles = StyleSheet.create({
 
   optionText: {
     fontSize: 16,
-  },
-
-  /* FAB SYNC */
-  fabSync: {
-    position: "absolute",
-    bottom: 25,
-    left: 20,
-    backgroundColor: "#4CAF50",
-    width: 55,
-    height: 55,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 6,
-  },
-
-  /* MODAL SYNC */
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  modalSync: {
-    width: "85%",
-    backgroundColor: "#fff",
-    borderRadius: 15,
-    padding: 20,
-  },
-
-  titulo: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-
-  texto: {
-    fontSize: 16,
-    marginBottom: 20,
-    textAlign: "center",
-  },
-
-  footer: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 10,
-  },
-
-  btnCancelar: {
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-  },
-
-  btnConfirmar: {
-    backgroundColor: "#4CAF50",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
   },
 });

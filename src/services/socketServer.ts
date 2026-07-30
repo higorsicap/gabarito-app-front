@@ -1,206 +1,220 @@
+import {
+    buscarProvaLiberadaParaDispositivo,
+    liberarProvaNoBanco,
+    salvarDispositivoOuAtualizar
+} from '@/src/database/services/provaRepository';
 import NetInfo from '@react-native-community/netinfo';
 import DeviceInfo from 'react-native-device-info';
 import HTTPServer from 'react-native-http-bridge-refurbished';
-// 💡 Opcional: Para precisão máxima no Android Hotspot, instale `react-native-network-info`:
-// npm install react-native-network-info
 import { NetworkInfo } from 'react-native-network-info';
 
+// =====================================
+// 📦 TIPAGEM E ESTADO GLOBAL
+// =====================================
+export interface DispositivoConectado {
+    id: string;
+    nome: string;
+    modelo?: string;
+    marca?: string;
+    versao?: string;
+    ip: string;
+    status: 'conectado' | 'prova_enviada' | 'erro';
+    conectado_em: string;
+}
+
 let serverStarted = false;
-
-// 🔥 Armazenamento temporário
 let respostas: any[] = [];
-
-// 🔐 Controle de duplicidade
 const idsRecebidos = new Set<string>();
-
-// 🔄 listeners (UI)
 let listeners: Function[] = [];
-
-// 📡 clientes conectados
 let clientesConectados = 0;
+let dispositivos: DispositivoConectado[] = [];
 
-// 📱 dispositivos conectados
-let dispositivos: any[] = [];
+const PORT = 8080;
+const SERVER_NAME = 'ServidorGabarito';
 
-// 🔍 Função para obter o IP real da interface Wi-Fi / Hotspot / Gateway
+// =====================================
+// 🔍 CAPTURA DE IP DA INTERFACE REDE
+// =====================================
 async function getRealIpAddress(): Promise<string> {
     try {
-        // 1. Tenta obter IPv4 ou Gateway diretamente (ideal para modo Roteador/Hotspot no Android)
         if (NetworkInfo) {
             const ipv4 = await NetworkInfo.getIPV4Address();
-            if (ipv4 && ipv4 !== '0.0.0.0' && ipv4 !== '127.0.0.1') {
-                return ipv4;
-            }
+            if (ipv4 && ipv4 !== '0.0.0.0' && ipv4 !== '127.0.0.1') return ipv4;
 
             const gatewayIp = await NetworkInfo.getGatewayIPAddress();
-            if (gatewayIp && gatewayIp !== '0.0.0.0' && gatewayIp !== '127.0.0.1') {
-                return gatewayIp;
-            }
+            if (gatewayIp && gatewayIp !== '0.0.0.0' && gatewayIp !== '127.0.0.1') return gatewayIp;
         }
-    } catch (e) {
-        // Ignora caso a lib react-native-network-info não esteja instalada
-    }
+    } catch (e) { }
 
     try {
-        // 2. Tenta via NetInfo da comunidade
         const netState = await NetInfo.fetch();
         if (netState.details) {
             const details = netState.details as { ipAddress?: string };
             const ip = details.ipAddress;
-
-            if (
-                typeof ip === 'string' &&
-                ip &&
-                ip !== '0.0.0.0' &&
-                ip !== '127.0.0.1'
-            ) {
+            if (typeof ip === 'string' && ip && ip !== '0.0.0.0' && ip !== '127.0.0.1') {
                 return ip;
             }
         }
 
-        // 3. Tenta via DeviceInfo
         const deviceIp = await DeviceInfo.getIpAddress();
-        if (
-            typeof deviceIp === 'string' &&
-            deviceIp &&
-            deviceIp !== '0.0.0.0' &&
-            deviceIp !== '127.0.0.1'
-        ) {
+        if (typeof deviceIp === 'string' && deviceIp && deviceIp !== '0.0.0.0' && deviceIp !== '127.0.0.1') {
             return deviceIp;
         }
 
-        // 4. Fallback: Se for Gateway dinâmico do Android ou Roteador padrão
-        return '10.19.165.166'; 
+        return '10.19.165.166';
     } catch (e) {
         console.log('⚠️ Erro ao capturar IP local:', e);
         return '10.19.165.166';
     }
 }
 
-// 🔔 notificar tela
+// =====================================
+// 🔔 EVENT LISTENERS & OBSERVERS
+// =====================================
 function notify() {
-    listeners.forEach(fn => fn(respostas));
+    listeners.forEach(fn => fn(respostas, dispositivos));
 }
 
-// 📥 subscribe
 export function subscribe(fn: Function) {
     listeners.push(fn);
-
     return () => {
         listeners = listeners.filter(f => f !== fn);
     };
 }
 
-// 🔥 PROCESSADOR CENTRAL
-function processarPayload(mensagem: any) {
-    // 🔹 envio de respostas
+// =====================================
+// 🔥 PROCESSADOR CENTRAL DE RESPOSTAS
+// =====================================
+async function processarPayload(mensagem: any) {
     if (mensagem.type === 'push') {
         const novas = mensagem.data || [];
         let inseridos = 0;
-
-        // 🔥 DADOS DO DISPOSITIVO
         const device = mensagem.device || {};
 
-        // 🔥 REGISTRA DISPOSITIVO
         if (device.id) {
-            const existe = dispositivos.find(d => d.id === device.id);
-
-            if (!existe) {
-                dispositivos.push({
-                    id: device.id,
-                    nome: device.nome,
-                    modelo: device.modelo,
-                    marca: device.marca,
-                    versao: device.versao,
-                    ip: mensagem.ip || null,
-                    conectado_em: new Date().toISOString()
-                });
-
-                console.log('📱 Novo dispositivo:', device.nome);
-            }
+            await registrarOuAtualizarDispositivo({
+                id: device.id,
+                nome: device.nome || 'Dispositivo',
+                modelo: device.modelo,
+                marca: device.marca,
+                versao: device.versao,
+                ip: mensagem.ip || '',
+                status: 'conectado',
+                conectado_em: new Date().toISOString()
+            });
         }
 
         novas.forEach((item: any) => {
             const uniqueId = `${device.id}-${item.id}`;
-
             if (!idsRecebidos.has(uniqueId)) {
                 idsRecebidos.add(uniqueId);
-
                 respostas.push({
                     ...item,
-                    // 🔥 salva origem
                     device_id: device.id,
                     device_nome: device.nome,
                     device_modelo: device.modelo
                 });
-
                 inseridos++;
             }
         });
 
-        console.log(`✅ Recebidos ${inseridos} novos registros`);
-        console.log(`📊 Total acumulado: ${respostas.length}`);
-
+        console.log(`✅ Recebidos ${inseridos} novos registros (Total: ${respostas.length})`);
         notify();
 
-        return {
-            status: 'ok',
-            recebidos: inseridos
-        };
+        return { status: 'ok', recebidos: inseridos };
     }
 
-    return {
-        status: 'erro',
-        mensagem: 'tipo inválido'
-    };
+    return { status: 'erro', mensagem: 'tipo inválido' };
 }
 
+// Helper interno para adicionar/atualizar dispositivo na memória e no SQLite
+async function registrarOuAtualizarDispositivo(novoDisp: DispositivoConectado) {
+    const index = dispositivos.findIndex(d => d.id === novoDisp.id);
+    if (index >= 0) {
+        dispositivos[index] = { ...dispositivos[index], ...novoDisp };
+    } else {
+        dispositivos.push(novoDisp);
+        console.log('📱 Novo dispositivo registrado na memória:', novoDisp.nome);
+    }
+
+    // 💾 Salva/Atualiza o dispositivo no SQLite do Aplicador
+    try {
+        await salvarDispositivoOuAtualizar(novoDisp);
+    } catch (error) {
+        console.error('❌ Erro ao salvar dispositivo no SQLite:', error);
+    }
+
+    notify();
+}
+
+// =====================================
 // 🚀 START SERVER
+// =====================================
 export async function startServer() {
     if (serverStarted) {
         console.log('⚠️ Servidor HTTP já iniciado');
         return;
     }
 
-    // 🌐 Obtém o IP dinâmico/real da interface
     const ip = await getRealIpAddress();
 
     HTTPServer.start(
-        8080,
-        'ServidorGabarito',
+        PORT,
+        SERVER_NAME,
         async (request: any) => {
             try {
                 console.log(`🌐 ${request.type} ${request.url}`);
 
-                // =====================================
-                // 🛠️ TRATAMENTO DE REQUISIÇÕES OPTIONS (CORS Preflight)
-                // =====================================
+                // 🛠️ CORS Preflight
                 if (request.type === 'OPTIONS') {
+                    HTTPServer.respond(request.requestId, 200, 'text/plain', 'OK');
+                    return;
+                }
+
+                // =====================================
+                // 📡 POST /conectar (Descoberta/Handshake)
+                // =====================================
+                if (request.type === 'POST' && request.url === '/conectar') {
+                    const body = request.postData ? JSON.parse(request.postData) : {};
+                    const { id, nome, modelo, marca, versao, ip: clienteIp } = body;
+
+                    if (id) {
+                        await registrarOuAtualizarDispositivo({
+                            id,
+                            nome: nome || 'Tablet Aluno',
+                            modelo,
+                            marca,
+                            versao,
+                            ip: clienteIp || request.ip || '',
+                            status: 'conectado',
+                            conectado_em: new Date().toISOString()
+                        });
+
+                        HTTPServer.respond(
+                            request.requestId,
+                            200,
+                            'application/json',
+                            JSON.stringify({ status: 'ok', mensagem: 'Dispositivo registrado com sucesso' })
+                        );
+                        return;
+                    }
+
                     HTTPServer.respond(
                         request.requestId,
-                        200,
-                        'text/plain',
-                        'OK'
+                        400,
+                        'application/json',
+                        JSON.stringify({ status: 'erro', mensagem: 'ID do dispositivo obrigatório' })
                     );
                     return;
                 }
 
                 // =====================================
-                // 🔥 POST /sync
+                // 🔥 POST /sync (Envio de respostas)
                 // =====================================
-                if (
-                    request.type === 'POST' &&
-                    request.url === '/sync'
-                ) {
+                if (request.type === 'POST' && request.url === '/sync') {
                     clientesConectados++;
-
-                    const body = request.postData
-                        ? JSON.parse(request.postData)
-                        : {};
-
-                    console.log('📥 Payload recebido:', body);
-
-                    const resposta = processarPayload(body);
+                    const body = request.postData ? JSON.parse(request.postData) : {};
+                    const resposta = await processarPayload(body);
 
                     HTTPServer.respond(
                         request.requestId,
@@ -208,41 +222,32 @@ export async function startServer() {
                         'application/json',
                         JSON.stringify(resposta)
                     );
-
                     return;
                 }
 
                 // =====================================
                 // 🔥 GET /respostas
                 // =====================================
-                if (
-                    request.type === 'GET' &&
-                    request.url === '/respostas'
-                ) {
+                if (request.type === 'GET' && request.url === '/respostas') {
                     HTTPServer.respond(
                         request.requestId,
                         200,
                         'application/json',
                         JSON.stringify(respostas)
                     );
-
                     return;
                 }
 
                 // =====================================
                 // 🔥 GET /dispositivos
                 // =====================================
-                if (
-                    request.type === 'GET' &&
-                    request.url === '/dispositivos'
-                ) {
+                if (request.type === 'GET' && request.url === '/dispositivos') {
                     HTTPServer.respond(
                         request.requestId,
                         200,
                         'application/json',
                         JSON.stringify(dispositivos)
                     );
-
                     return;
                 }
 
@@ -250,14 +255,12 @@ export async function startServer() {
                 // 🔥 GET /datahora
                 // =====================================
                 if (request.type === 'GET' && request.url === '/datahora') {
-                    const agora = new Date().toLocaleTimeString('pt-BR');
-
                     HTTPServer.respond(
                         request.requestId,
                         200,
                         'application/json',
                         JSON.stringify({
-                            horaRecebimento: agora,
+                            horaRecebimento: new Date().toLocaleTimeString('pt-BR'),
                             timestamp: Date.now()
                         })
                     );
@@ -265,12 +268,68 @@ export async function startServer() {
                 }
 
                 // =====================================
+                // 🔥 GET /recebeprova (Polling feito pelo Tablet)
+                // Ex: /recebeprova?dispositivoId=tablet-01
+                // =====================================
+                if (request.type === 'GET' && request.url.startsWith('/recebeprova')) {
+                    try {
+                        const urlParams = new URLSearchParams(request.url.split('?')[1]);
+                        const dispositivoId = urlParams.get('dispositivoId') || urlParams.get('id');
+
+                        if (!dispositivoId) {
+                            HTTPServer.respond(
+                                request.requestId,
+                                400,
+                                'application/json',
+                                JSON.stringify({ liberada: false, erro: 'dispositivoId não fornecido' })
+                            );
+                            return;
+                        }
+
+                        // Busca no banco se existe prova liberada para este tablet especificamente
+                        const provaLiberada = await buscarProvaLiberadaParaDispositivo(dispositivoId);
+
+                        if (provaLiberada) {
+                            HTTPServer.respond(
+                                request.requestId,
+                                200,
+                                'application/json',
+                                JSON.stringify({
+                                    liberada: true,
+                                    prova: provaLiberada
+                                })
+                            );
+                            return;
+                        }
+
+                        // Se a prova ainda não foi liberada pelo Aplicador
+                        HTTPServer.respond(
+                            request.requestId,
+                            200,
+                            'application/json',
+                            JSON.stringify({
+                                liberada: false,
+                                mensagem: 'Prova ainda não liberada pelo aplicador'
+                            })
+                        );
+                        return;
+
+                    } catch (error) {
+                        console.error('❌ Erro no /recebeprova:', error);
+                        HTTPServer.respond(
+                            request.requestId,
+                            500,
+                            'application/json',
+                            JSON.stringify({ liberada: false, erro: 'Erro interno ao consultar liberação da prova' })
+                        );
+                        return;
+                    }
+                }
+
+                // =====================================
                 // 🔥 GET /status
                 // =====================================
-                if (
-                    request.type === 'GET' &&
-                    request.url === '/status'
-                ) {
+                if (request.type === 'GET' && request.url === '/status') {
                     const serverInfo = {
                         id: await DeviceInfo.getUniqueId(),
                         nome: await DeviceInfo.getDeviceName(),
@@ -291,76 +350,88 @@ export async function startServer() {
                             servidor: serverInfo
                         })
                     );
-
                     return;
                 }
 
                 // =====================================
-                // 🔥 404
+                // 🔥 404 NOT FOUND
                 // =====================================
                 HTTPServer.respond(
                     request.requestId,
                     404,
                     'application/json',
-                    JSON.stringify({
-                        status: 'erro',
-                        mensagem: 'rota não encontrada'
-                    })
+                    JSON.stringify({ status: 'erro', mensagem: 'rota não encontrada' })
                 );
 
             } catch (error: any) {
                 console.log('❌ Erro HTTP:', error);
-
                 HTTPServer.respond(
                     request.requestId,
                     500,
                     'application/json',
-                    JSON.stringify({
-                        status: 'erro',
-                        mensagem: error?.message || 'erro interno'
-                    })
+                    JSON.stringify({ status: 'erro', mensagem: error?.message || 'erro interno' })
                 );
             }
         }
     );
 
     serverStarted = true;
-
-    console.log('🔥 Servidor HTTP rodando');
-    console.log(`🌐 Endereço do Servidor: http://${ip}:8080`);
-    console.log('📡 Aguardando tablets...');
+    console.log(`🔥 Servidor HTTP rodando em http://${ip}:${PORT}`);
 }
 
+// =====================================
+// 🔓 LIBERAR PROVA PARA O TABLET (Executado no clique do Aplicador)
+// =====================================
+export async function liberarProvaParaDispositivo(
+    dispositivoId: string,
+    idAvaliacaoSaedMob: number | string,
+    alunoInfo?: { nome: string; id?: string | number }
+) {
+    const target = dispositivos.find(d => d.id === dispositivoId);
+
+    try {
+        // Grava no SQLite que a prova está liberada para este tablet especificamente
+        await liberarProvaNoBanco(dispositivoId, idAvaliacaoSaedMob, alunoInfo);
+
+        if (target) {
+            target.status = 'prova_enviada';
+            notify();
+        }
+
+        console.log(`🔓 Prova liberada com sucesso no banco para o tablet ${dispositivoId}`);
+        return true;
+    } catch (error) {
+        console.error(`❌ Erro ao liberar prova para ${dispositivoId}:`, error);
+        if (target) {
+            target.status = 'erro';
+            notify();
+        }
+        throw error;
+    }
+}
+
+// =====================================
 // 🛑 STOP SERVER
+// =====================================
 export function stopServer() {
     if (serverStarted) {
         HTTPServer.stop();
         serverStarted = false;
         clientesConectados = 0;
         dispositivos = [];
-
         console.log('🛑 Servidor HTTP parado');
     }
 }
 
-// 📊 GET DADOS
-export function getRespostas() {
-    return respostas;
-}
+// =====================================
+// 📊 GETTERS E RESET
+// =====================================
+export function getRespostas() { return respostas; }
+export function getDispositivos() { return dispositivos; }
+export function getClientesConectados() { return clientesConectados; }
 
-// 📱 GET DISPOSITIVOS
-export function getDispositivos() {
-    return dispositivos;
-}
-
-// 🧹 RESET
 export function resetRespostas() {
     respostas = [];
     idsRecebidos.clear();
     notify();
-}
-
-// 📡 quantidade de tablets conectados
-export function getClientesConectados() {
-    return clientesConectados;
 }

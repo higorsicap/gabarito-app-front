@@ -75,13 +75,11 @@ export async function baixarProva(params: {
 }
 
 export async function listarEscolas(params?: {
-    id_anoletivo?: number;
-    id_aplicador?: number;
+    id_cliente?: number;
 }) {
     return postForm({
         s: 6,
-        id_anoletivo: params?.id_anoletivo ?? -1, // 🔥 IMPORTANTE
-        id_aplicador: params?.id_aplicador ?? -1 // 🔥 IMPORTANTE
+        id_cliente: params?.id_cliente ?? -1
     });
 }
 
@@ -89,4 +87,23 @@ export async function provasDisponiveis() {
     return postForm({
         s: 7
     });
+}
+
+export async function listaAlunos(params?: {
+    id_cliente?: number;
+}) {
+    return postForm({
+        s: 8,
+        id_cliente: params?.id_cliente ?? -1
+    })
+}
+
+export async function listaTurmas(params?: {
+    id_cliente?: number;
+}) {
+    return postForm({
+        s: 9,
+        id_cliente: params?.id_cliente ?? -1
+
+    })
 }

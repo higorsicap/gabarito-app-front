@@ -9,6 +9,7 @@ export function iniciarDb() {
             id_avaliacao_saed INTEGER,
             id_anoletivo INTEGER,
             id_cliente INTEGER,
+            nome_cliente TEXT,
             id_serie INTEGER,
             ordem INTEGER,
             descricao_avaliacao TEXT,
@@ -50,12 +51,76 @@ export function iniciarDb() {
         CREATE TABLE
             IF NOT EXISTS 'prova_sync_saed' (
                 id_prova_sync INTEGER PRIMARY KEY AUTOINCREMENT,
-                id_ava_questoes_saed_mob INTEGER,
+                id_avaliacao_saed_mob INTEGER,
                 qr_code TEXT,
                 arq_prova TEXT,
                 sincronizado INTEGER NOT NULL DEFAULT 0,
                 data_sync DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (id_ava_questoes_saed_mob) REFERENCES ava_questoes_saed_mob (id_ava_questoes_saed_mob)
+                FOREIGN KEY (id_avaliacao_saed_mob) REFERENCES avaliacao_saed_mob (id_avaliacao_saed_mob)
             ); 
+    `);
+
+    db.execAsync(`
+        CREATE TABLE 
+            IF NOT EXISTS 'ava_escolas_saed'(
+                id_ava_escolas_saed INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_escola INTEGER,
+                id_cliente INTEGER,
+                nome_escola TEXT 
+        );
+    `);
+
+    db.execAsync(`
+        CREATE TABLE
+            IF NOT EXISTS 'ava_turmas_saed'(
+                id_ava_turmas_saed INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_escola INTEGER,
+                id_serie INTEGER,
+                id_turma INTEGER,
+                descricao_turma TEXT,
+                FOREIGN KEY (id_escola) REFERENCES ava_escolas_saed (id_escola)
+        );
+    `);
+
+    db.execAsync(`
+        CREATE TABLE 
+            IF NOT EXISTS 'ava_estudante_saed'(
+                id_ava_estudante_saed INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_cliente INTEGER,
+                id_escola INTEGER,
+                id_serie INTEGER,
+                id_turma INTEGER,
+                id_estudante_origem INTEGER,
+                nome_estudante TEXT,
+                FOREIGN KEY (id_escola) REFERENCES ava_escolas_saed (id_escola)
+        );
+    `)
+
+    db.execAsync(`
+        CREATE TABLE 
+            IF NOT EXISTS liberacoes_prova (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                dispositivo_id TEXT UNIQUE NOT NULL,
+                nome_aluno TEXT,
+                prova_json TEXT NOT NULL,
+                liberada INTEGER DEFAULT 0,
+                entregue INTEGER DEFAULT 0,
+                data_liberacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (dispositivo_id) REFERENCES dispositivos (id) ON DELETE CASCADE
+        );
+    `);
+
+    db.execAsync(`
+        CREATE TABLE 
+            IF NOT EXISTS dispositivos (
+                id TEXT PRIMARY KEY NOT NULL,
+                nome TEXT,
+                modelo TEXT,
+                marca TEXT,
+                versao TEXT,
+                ip TEXT,
+                status TEXT DEFAULT 'CONECTADO',
+                conectado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        );    
     `);
 }

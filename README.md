@@ -48,25 +48,35 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
 ```
-gabarito-app
+gabarito-app-front
+├─ .idea
+│  ├─ caches
+│  │  └─ deviceStreaming.xml
+│  ├─ deviceManager.xml
+│  ├─ gabarito-app-front.iml
+│  ├─ misc.xml
+│  ├─ modules.xml
+│  ├─ vcs.xml
+│  └─ workspace.xml
 ├─ app
 │  ├─ (aplicador)
-│  │  ├─ baixar.tsx
-│  │  ├─ home.tsx
-│  │  ├─ sincronizador.tsx
-│  │  ├─ sincronizar.tsx
+│  │  ├─ aplicarProva.tsx
+│  │  ├─ saed.tsx
 │  │  └─ _layout.tsx
 │  ├─ (auth)
 │  │  ├─ index.tsx
 │  │  └─ login.tsx
+│  ├─ (generico)
+│  │  ├─ baixar.tsx
+│  │  ├─ scanner.tsx
+│  │  └─ sincronizador.tsx
 │  ├─ (professor)
 │  │  ├─ home.tsx
-│  │  ├─ scanner.tsx
 │  │  └─ _layout.tsx
 │  └─ _layout.tsx
 ├─ app.json
-├─ assets
 ├─ eas.json
 ├─ eslint.config.js
 ├─ package-lock.json
@@ -75,20 +85,30 @@ gabarito-app
 ├─ scripts
 │  └─ reset-project.js
 ├─ src
+│  ├─ assets
+│  │  └─ images
+│  │     ├─ icon_splash.png
+│  │     ├─ logo_icon.png
+│  │     ├─ logo_icon2.png
+│  │     └─ teste.png
 │  ├─ components
-│  │  ├─ BottomBack.tsx
 │  │  ├─ BottomNav.tsx
 │  │  ├─ CameraFrame.tsx
 │  │  └─ FiltroProva.tsx
+│  ├─ config
+│  │  └─ omrLayour.ts
 │  ├─ contexts
 │  │  └─ AuthContext.tsx
 │  ├─ database
+│  │  ├─ app.db
 │  │  ├─ database.ts
 │  │  ├─ migrations.ts
 │  │  └─ services
-│  │     └─ provaRepository.ts
+│  │     ├─ leitorGabaritoRepository.ts
+│  │     ├─ provaRepository.ts
+│  │     └─ respostaRepository.ts
 │  ├─ services
-│  │  ├─ camera.service.ts
+│  │  ├─ correcaoGabarito.ts
 │  │  ├─ listaProvaService.ts
 │  │  ├─ loginService.ts
 │  │  ├─ socketiClient.ts

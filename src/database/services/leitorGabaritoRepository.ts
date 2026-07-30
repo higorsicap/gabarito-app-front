@@ -1,9 +1,9 @@
 import { db } from "@/src/database/database";
 import { Directory, File, Paths } from "expo-file-system";
 
-export interface ProvaSync {
-    id?: number;
-    id_prova: number;
+export interface prova_sync_saed {
+    id_prova_sync?: number;
+    id_avaliacao_saed_mob: number;
     qr_code: string;
     arq_prova: string;
     data_sync: string;
@@ -40,18 +40,18 @@ async function apagarImagem(caminho: string): Promise<void> {
 // ─── Banco de dados ───────────────────────────────────────────────────────────
 
 // Salva uma ou mais provas pendentes de sincronização
-export async function salvaGabarito(dados: ProvaSync[]): Promise<void> {
+export async function salvaGabarito(dados: prova_sync_saed[]): Promise<void> {
     for (const prova of dados) {
         await db.runAsync(
-            `INSERT INTO prova_sync (
-                id_prova,
+            `INSERT INTO prova_sync_saed (
+                id_avaliacao_saed_mob,
                 qr_code,
                 arq_prova,
                 data_sync,
                 sincronizado
             ) VALUES (?, ?, ?, ?, ?)`,
             [
-                Number(prova.id_prova),
+                Number(prova.id_avaliacao_saed_mob),
                 prova.qr_code,
                 prova.arq_prova,
                 new Date().toISOString(),
@@ -62,22 +62,22 @@ export async function salvaGabarito(dados: ProvaSync[]): Promise<void> {
 }
 
 // Retorna todas as provas ainda não sincronizadas
-export async function obterPendentes(): Promise<ProvaSync[]> {
-    return await db.getAllAsync<ProvaSync>(
+export async function obterPendentes(): Promise<prova_sync_saed[]> {
+    return await db.getAllAsync<prova_sync_saed>(
         `SELECT 
             * 
-        FROM prova_sync 
+        FROM prova_sync_saed 
         WHERE sincronizado = 0 ORDER BY data_sync ASC`
     );
 }
 
 // Marca uma prova como sincronizada e apaga a imagem local
-export async function marcarSincronizado(id: number, caminhoImagem: string): Promise<void> {
+export async function marcarSincronizado(id_prova_sync: number, caminhoImagem: string): Promise<void> {
     await db.runAsync(
-        `UPDATE prova_sync 
+        `UPDATE prova_sync_saed 
             SET sincronizado = 1 
         WHERE id_prova_sync = ?`,
-        [id]
+        [id_prova_sync]
     );
     await apagarImagem(caminhoImagem);
 }
@@ -87,19 +87,19 @@ export async function contarPendentes(): Promise<number> {
     const result = await db.getFirstAsync<{ total: number }>(
         `SELECT 
             COUNT(*) as total 
-        FROM prova_sync 
+        FROM prova_sync_saed 
         WHERE sincronizado = 0`
     );
     return result?.total ?? 0;
 }
 
 // Obtém prova por id_prova
-export async function obterGabarito(id_prova: number): Promise<ProvaSync[]> {
-    return await db.getAllAsync<ProvaSync>(
+export async function obterGabarito(id_prova_sync: number): Promise<prova_sync_saed[]> {
+    return await db.getAllAsync<prova_sync_saed>(
         `SELECT 
             * 
-        FROM prova_sync 
-        WHERE id_prova = ?`,
-        [Number(id_prova)]
+        FROM prova_sync_saed 
+        WHERE id_prova_sync = ?`,
+        [Number(id_prova_sync)]
     );
 }
