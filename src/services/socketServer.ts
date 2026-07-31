@@ -1,12 +1,13 @@
-import {
-    buscarProvaLiberadaParaDispositivo,
-    liberarProvaNoBanco,
-    salvarDispositivoOuAtualizar
-} from '@/src/database/services/provaRepository';
 import NetInfo from '@react-native-community/netinfo';
 import DeviceInfo from 'react-native-device-info';
 import HTTPServer from 'react-native-http-bridge-refurbished';
 import { NetworkInfo } from 'react-native-network-info';
+
+import {
+    buscarProvaLiberadaParaDispositivo,
+    liberarProvaNoBanco,
+    salvarDispositivoOuAtualizar,
+} from '@/src/database/services/provaRepository';
 
 // =====================================
 // 📦 TIPAGEM E ESTADO GLOBAL
@@ -72,14 +73,34 @@ async function getRealIpAddress(): Promise<string> {
 // 🔔 EVENT LISTENERS & OBSERVERS
 // =====================================
 function notify() {
-    listeners.forEach(fn => fn(respostas, dispositivos));
+    listeners.forEach((fn) => fn(respostas, dispositivos));
 }
 
 export function subscribe(fn: Function) {
     listeners.push(fn);
     return () => {
-        listeners = listeners.filter(f => f !== fn);
+        listeners = listeners.filter((f) => f !== fn);
     };
+}
+
+// Helper interno para adicionar/atualizar dispositivo na memória e no SQLite
+async function registrarOuAtualizarDispositivo(novoDisp: DispositivoConectado) {
+    const index = dispositivos.findIndex((d) => d.id === novoDisp.id);
+    if (index >= 0) {
+        dispositivos[index] = { ...dispositivos[index], ...novoDisp };
+    } else {
+        dispositivos.push(novoDisp);
+        console.log('📱 Novo dispositivo registrado na memória:', novoDisp.nome);
+    }
+
+    // 💾 Salva/Atualiza o dispositivo no SQLite do Aplicador
+    try {
+        await salvarDispositivoOuAtualizar(novoDisp);
+    } catch (error) {
+        console.error('❌ Erro ao salvar dispositivo no SQLite:', error);
+    }
+
+    notify();
 }
 
 // =====================================
@@ -100,7 +121,7 @@ async function processarPayload(mensagem: any) {
                 versao: device.versao,
                 ip: mensagem.ip || '',
                 status: 'conectado',
-                conectado_em: new Date().toISOString()
+                conectado_em: new Date().toISOString(),
             });
         }
 
@@ -112,7 +133,7 @@ async function processarPayload(mensagem: any) {
                     ...item,
                     device_id: device.id,
                     device_nome: device.nome,
-                    device_modelo: device.modelo
+                    device_modelo: device.modelo,
                 });
                 inseridos++;
             }
@@ -125,26 +146,6 @@ async function processarPayload(mensagem: any) {
     }
 
     return { status: 'erro', mensagem: 'tipo inválido' };
-}
-
-// Helper interno para adicionar/atualizar dispositivo na memória e no SQLite
-async function registrarOuAtualizarDispositivo(novoDisp: DispositivoConectado) {
-    const index = dispositivos.findIndex(d => d.id === novoDisp.id);
-    if (index >= 0) {
-        dispositivos[index] = { ...dispositivos[index], ...novoDisp };
-    } else {
-        dispositivos.push(novoDisp);
-        console.log('📱 Novo dispositivo registrado na memória:', novoDisp.nome);
-    }
-
-    // 💾 Salva/Atualiza o dispositivo no SQLite do Aplicador
-    try {
-        await salvarDispositivoOuAtualizar(novoDisp);
-    } catch (error) {
-        console.error('❌ Erro ao salvar dispositivo no SQLite:', error);
-    }
-
-    notify();
 }
 
 // =====================================
@@ -172,7 +173,7 @@ export async function startServer() {
                 }
 
                 // =====================================
-                // 📡 POST /conectar (Descoberta/Handshake)
+                // 📡 POST /conectar (Descoberta/Handshake Inicial)
                 // =====================================
                 if (request.type === 'POST' && request.url === '/conectar') {
                     const body = request.postData ? JSON.parse(request.postData) : {};
@@ -187,7 +188,7 @@ export async function startServer() {
                             versao,
                             ip: clienteIp || request.ip || '',
                             status: 'conectado',
-                            conectado_em: new Date().toISOString()
+                            conectado_em: new Date().toISOString(),
                         });
 
                         HTTPServer.respond(
@@ -252,7 +253,7 @@ export async function startServer() {
                 }
 
                 // =====================================
-                // 🔥 GET /datahora
+                // 🔥 GET /datahora (Teste de Ping)
                 // =====================================
                 if (request.type === 'GET' && request.url === '/datahora') {
                     HTTPServer.respond(
@@ -261,71 +262,99 @@ export async function startServer() {
                         'application/json',
                         JSON.stringify({
                             horaRecebimento: new Date().toLocaleTimeString('pt-BR'),
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
                         })
                     );
                     return;
                 }
 
                 // =====================================
-                // 🔥 GET /recebeprova (Polling feito pelo Tablet)
-                // Ex: /recebeprova?dispositivoId=tablet-01
+                // 🔥 GET /prova-liberada/:id OU POST /prova-liberada
                 // =====================================
-                if (request.type === 'GET' && request.url.startsWith('/recebeprova')) {
+                if (request.url.includes('/prova-liberada') || request.url.includes('/recebeprova')) {
                     try {
-                        const urlParams = new URLSearchParams(request.url.split('?')[1]);
-                        const dispositivoId = urlParams.get('dispositivoId') || urlParams.get('id');
+                        let dispositivoId: string | null = null;
 
-                        if (!dispositivoId) {
+                        // 1. EXTRAI SE VIER NO CAMINHO DA URL (ex: /prova-liberada/d73d3197c91ad660)
+                        const urlParts = request.url.split('/');
+                        if (urlParts.length > 2 && urlParts[2]) {
+                            dispositivoId = urlParts[2].trim();
+                        }
+
+                        // 2. EXTRAI SE VIER VIA POST (body / postData)
+                        if (!dispositivoId && request.postData) {
+                            try {
+                                const body = typeof request.postData === 'string'
+                                    ? JSON.parse(request.postData)
+                                    : request.postData;
+
+                                dispositivoId = body.dispositivoId || body.idTablet || body.id || body.dispositivo;
+                            } catch (e) {
+                                // Se o postData for uma string simples com o ID
+                                dispositivoId = String(request.postData).trim();
+                            }
+                        }
+
+                        console.log(`🔎 Busca de prova solicitada para o dispositivo: "${dispositivoId || 'Desconhecido'}"`);
+
+                        if (!dispositivoId || dispositivoId === 'undefined' || dispositivoId === 'null') {
+                            console.log('⚠️ ID do dispositivo não foi encontrado na URL nem no Body');
                             HTTPServer.respond(
                                 request.requestId,
                                 400,
                                 'application/json',
-                                JSON.stringify({ liberada: false, erro: 'dispositivoId não fornecido' })
+                                JSON.stringify({ liberada: false, erro: 'dispositivoId é obrigatório' })
                             );
                             return;
                         }
 
-                        // Busca no banco se existe prova liberada para este tablet especificamente
+                        // 3. CONSULTA NO BANCO DE DADOS SE A PROVA FOI LIBERADA
                         const provaLiberada = await buscarProvaLiberadaParaDispositivo(dispositivoId);
 
                         if (provaLiberada) {
+                            console.log(`🟢 Prova liberada encontrada! Retornando para o tablet: ${dispositivoId}`);
+
+                            const respostaPayload = {
+                                liberada: true,
+                                ...(typeof provaLiberada === 'object' ? provaLiberada : {}),
+                                prova: provaLiberada,
+                            };
+
                             HTTPServer.respond(
                                 request.requestId,
                                 200,
                                 'application/json',
-                                JSON.stringify({
-                                    liberada: true,
-                                    prova: provaLiberada
-                                })
+                                JSON.stringify(respostaPayload)
                             );
                             return;
                         }
 
-                        // Se a prova ainda não foi liberada pelo Aplicador
+                        // 4. SE AINDA NÃO FOI LIBERADA
                         HTTPServer.respond(
                             request.requestId,
                             200,
                             'application/json',
                             JSON.stringify({
                                 liberada: false,
-                                mensagem: 'Prova ainda não liberada pelo aplicador'
+                                mensagem: 'Prova ainda não liberada pelo aplicador',
                             })
                         );
                         return;
 
-                    } catch (error) {
-                        console.error('❌ Erro no /recebeprova:', error);
+                    } catch (error: any) {
+                        console.error('❌ Erro na rota /prova-liberada:', error);
                         HTTPServer.respond(
                             request.requestId,
                             500,
                             'application/json',
-                            JSON.stringify({ liberada: false, erro: 'Erro interno ao consultar liberação da prova' })
+                            JSON.stringify({
+                                liberada: false,
+                                erro: 'Erro interno ao consultar liberação da prova',
+                            })
                         );
                         return;
                     }
                 }
-
                 // =====================================
                 // 🔥 GET /status
                 // =====================================
@@ -336,7 +365,7 @@ export async function startServer() {
                         modelo: DeviceInfo.getModel(),
                         marca: DeviceInfo.getBrand(),
                         sistema: DeviceInfo.getSystemName(),
-                        versao: DeviceInfo.getSystemVersion()
+                        versao: DeviceInfo.getSystemVersion(),
                     };
 
                     HTTPServer.respond(
@@ -347,7 +376,7 @@ export async function startServer() {
                             status: 'online',
                             respostas: respostas.length,
                             clientes: clientesConectados,
-                            servidor: serverInfo
+                            servidor: serverInfo,
                         })
                     );
                     return;
@@ -362,7 +391,6 @@ export async function startServer() {
                     'application/json',
                     JSON.stringify({ status: 'erro', mensagem: 'rota não encontrada' })
                 );
-
             } catch (error: any) {
                 console.log('❌ Erro HTTP:', error);
                 HTTPServer.respond(
@@ -387,7 +415,7 @@ export async function liberarProvaParaDispositivo(
     idAvaliacaoSaedMob: number | string,
     alunoInfo?: { nome: string; id?: string | number }
 ) {
-    const target = dispositivos.find(d => d.id === dispositivoId);
+    const target = dispositivos.find((d) => d.id === dispositivoId);
 
     try {
         // Grava no SQLite que a prova está liberada para este tablet especificamente
@@ -426,9 +454,15 @@ export function stopServer() {
 // =====================================
 // 📊 GETTERS E RESET
 // =====================================
-export function getRespostas() { return respostas; }
-export function getDispositivos() { return dispositivos; }
-export function getClientesConectados() { return clientesConectados; }
+export function getRespostas() {
+    return respostas;
+}
+export function getDispositivos() {
+    return dispositivos;
+}
+export function getClientesConectados() {
+    return clientesConectados;
+}
 
 export function resetRespostas() {
     respostas = [];

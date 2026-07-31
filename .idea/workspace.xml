@@ -6,24 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="9156f65c-5bb7-4df5-95ef-7ef6735722f6" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(aplicador)/aplicarProva.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(aplicador)/aplicarProva.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(aplicador)/saed.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(aplicador)/saed.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(auth)/login.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(auth)/login.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(generico)/baixar.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(generico)/scanner.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(generico)/sincronizador.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(generico)/sincronizador.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/assets/images/teste.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/BottomNav.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/BottomNav.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/FiltroProva.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/config/omrLayour.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/database/app.db" beforeDir="false" afterPath="$PROJECT_DIR$/src/database/app.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/database/migrations.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/database/migrations.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/database/services/leitorGabaritoRepository.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/database/services/leitorGabaritoRepository.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/database/services/provaRepository.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/database/services/provaRepository.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/services/listaProvaService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/services/listaProvaService.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/services/socketServer.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/services/socketServer.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
