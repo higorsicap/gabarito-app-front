@@ -36,40 +36,53 @@ export async function salvarProvaOffline(dados: any[]) {
 
             const idProva = result.lastInsertRowId;
 
-            // 2. PARSE DE QUESTÕES
-            const listaQuestoes =
-                typeof prova.questoes === "string"
-                    ? JSON.parse(prova.questoes)
-                    : prova.questoes || [];
+            // 2. PARSE DE DISCIPLINAS
+            const disciplinas =
+                typeof prova.disciplinas === "string"
+                    ? JSON.parse(prova.disciplinas)
+                    : prova.disciplinas || [];
 
-            // 3. INSERE QUESTÕES E ALTERNATIVAS
-            for (const questao of listaQuestoes) {
-                const alternativas =
-                    typeof questao.alternativas === "string"
-                        ? JSON.parse(questao.alternativas)
-                        : questao.alternativas || [];
+            // 3. PERCORRE AS DISCIPLINAS
+            for (const disc of disciplinas) {
+                const listaQuestoes =
+                    typeof disc.questoes === "string"
+                        ? JSON.parse(disc.questoes)
+                        : disc.questoes || [];
 
-                for (const alt of alternativas) {
-                    await db.runAsync(
-                        `
-                        INSERT INTO ava_questoes_saed_mob (
-                            id_avaliacao_saed_mob,
-                            id_questao,
-                            conteudo,
-                            id_pergunta_alternativa,
-                            descricao_alternativa,
-                            esta_correto
-                        ) VALUES (?, ?, ?, ?, ?, ?)
-                        `,
-                        [
-                            Number(idProva),
-                            Number(questao.id_questao),
-                            questao.conteudo,
-                            Number(alt.id_pergunta_alternativa),
-                            alt.descricao_alternativa,
-                            Number(alt.esta_correto),
-                        ]
-                    );
+                // 4. PERCORRE AS QUESTÕES DE CADA DISCIPLINA
+                for (const questao of listaQuestoes) {
+                    const alternativas =
+                        typeof questao.alternativas === "string"
+                            ? JSON.parse(questao.alternativas)
+                            : questao.alternativas || [];
+
+                    // 5. INSERE CADA ALTERNATIVA/QUESTÃO
+                    for (const alt of alternativas) {
+                        await db.runAsync(
+                            `
+                            INSERT INTO ava_questoes_saed_mob (
+                                id_avaliacao_saed_mob,
+                                id_questao,
+                                id_disciplina,
+                                desc_disciplina,
+                                conteudo,
+                                id_pergunta_alternativa,
+                                descricao_alternativa,
+                                esta_correto
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            `,
+                            [
+                                Number(idProva),
+                                Number(questao.id_questao),
+                                Number(disc.id_disciplina),
+                                disc.desc_disciplina,
+                                questao.conteudo,
+                                Number(alt.id_pergunta_alternativa),
+                                alt.descricao_alternativa,
+                                Number(alt.esta_correto),
+                            ]
+                        );
+                    }
                 }
             }
         }

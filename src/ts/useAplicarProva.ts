@@ -1,30 +1,40 @@
+import { useEffect, useState } from "react";
+import { Alert } from "react-native";
+
 import {
     AlunoSelect,
     AvaliacaoSelect,
     EscolaSelect,
     TurmaSelect,
+    atualizarPausaDispositivo,
+    buscarDisciplinasAplicadas,
     listarAlunoEscolaTurma,
     preencherSelectAvaliacao,
     preencherSelectEscola,
     preencherSelectTurma,
+    verificarBateriaDispositivo,
 } from "@/src/database/services/provaRepository";
 
-// 📌 AJUSTADO: Importando liberarProvaParaDispositivo e apontando para o seu arquivo do servidor
 import {
     DispositivoConectado,
     getDispositivos,
     liberarProvaParaDispositivo,
     startServer,
     subscribe,
-} from "@/src/services/socketServer"; // 👈 Confirme se o caminho do seu servidor.ts é este
-import { useEffect, useState } from "react";
+} from "@/src/services/socketServer";
 
 export interface DispositivoOption {
     id: string | number;
     nome: string;
 }
 
-// Tipagem para os possíveis status do aluno
+export interface DisciplinaAplicada {
+    id_disciplina?: string | number;
+    nome: string;
+    total: number;
+    respondidas?: number;
+}
+
 export type StatusAluno = "Pendente" | "Não iniciado" | "Iniciado" | "Pausado" | "Concluído";
 
 export function useConsulta() {
@@ -59,30 +69,37 @@ export function useConsulta() {
     const [alunos, setAlunos] = useState<AlunoSelect[]>([]);
     const [menuAberto, setMenuAberto] = useState<number | null>(null);
 
-    // EFFECT PARA OUVIR OS DISPOSITIVOS EM TEMPO REAL
+    // 🔄 EFFECT PARA OUVIR DISPOSITIVOS E DADOS EM TEMPO REAL VIA SOCKET
     useEffect(() => {
+        let isMounted = true;
+
         const atualizarListaDispositivos = (listaServer: DispositivoConectado[]) => {
-            const opcoesMapeadas: DispositivoOption[] = listaServer.map((d) => ({
+            if (!isMounted) return;
+            const opcoesMapeadas: DispositivoOption[] = (listaServer || []).map((d) => ({
                 id: d.id,
-                nome: `${d.nome} (${d.ip || "Sem IP"})`,
+                nome: `${d.nome || "Tablet"} (${d.ip || "Sem IP"})`,
             }));
             setDispositivosOpcoes(opcoesMapeadas);
         };
 
+        // Carrega estado inicial de dispositivos
         atualizarListaDispositivos(getDispositivos());
 
-        const unsubscribe = subscribe((_respostas: any, novosDispositivos: DispositivoConectado[]) => {
+        // Subscrição em tempo real
+        const unsubscribe = subscribe((_respostas: unknown, novosDispositivos: DispositivoConectado[]) => {
             atualizarListaDispositivos(novosDispositivos);
         });
 
         return () => {
+            isMounted = false;
             unsubscribe();
         };
     }, []);
 
-    // Carrega Avaliações e Escolas na inicialização
+    // 🏛️ Carrega Avaliações e Escolas na inicialização
     useEffect(() => {
         let isMounted = true;
+
         async function carregarDadosIniciais() {
             try {
                 setCarregandoOpcoes(true);
@@ -100,16 +117,20 @@ export function useConsulta() {
                 if (isMounted) setCarregandoOpcoes(false);
             }
         }
+
         carregarDadosIniciais();
         return () => { isMounted = false; };
     }, []);
 
-    // Carrega Turmas ao selecionar/alterar a Escola
+    // 🏫 Carrega Turmas ao selecionar/alterar a Escola
     useEffect(() => {
         let isMounted = true;
+
         async function carregarTurmasPorEscola() {
             setTurma("");
             setAlunos([]);
+            setDispositivosAtribuidos({});
+            setStatusAlunos({});
 
             if (!escola) {
                 setTurmasOpcoes([]);
@@ -128,17 +149,20 @@ export function useConsulta() {
                 if (isMounted) setCarregandoTurmas(false);
             }
         }
+
         carregarTurmasPorEscola();
         return () => { isMounted = false; };
     }, [escola]);
 
-    // Busca Alunos AUTOMATICAMENTE ao selecionar a Turma
+    // 👨‍🎓 Busca Alunos AUTOMATICAMENTE ao selecionar a Turma
     useEffect(() => {
         let isMounted = true;
 
         async function carregarAlunosAutomaticamente() {
             if (!escola || !turma) {
                 setAlunos([]);
+                setDispositivosAtribuidos({});
+                setStatusAlunos({});
                 return;
             }
 
@@ -157,11 +181,10 @@ export function useConsulta() {
         }
 
         carregarAlunosAutomaticamente();
-
         return () => { isMounted = false; };
     }, [turma, escola]);
 
-    // Função para vincular um dispositivo a um aluno
+    // 📱 Atribuir dispositivo a um aluno
     function atribuirDispositivo(alunoId: number, dispositivoId: string) {
         setDispositivosAtribuidos((prev) => ({
             ...prev,
@@ -169,7 +192,7 @@ export function useConsulta() {
         }));
     }
 
-    // Calcula dinamicamente o status atual de cada aluno
+    // 📊 Status dinâmico do aluno
     function obterStatusAluno(alunoId: number, statusOriginal?: string): StatusAluno {
         if (statusAlunos[alunoId]) {
             return statusAlunos[alunoId];
@@ -180,7 +203,6 @@ export function useConsulta() {
         }
 
         const temDispositivo = Boolean(dispositivosAtribuidos[alunoId]);
-
         return temDispositivo ? "Não iniciado" : "Pendente";
     }
 
@@ -200,29 +222,37 @@ export function useConsulta() {
         setMenuAberto((prev) => (prev === id ? null : id));
     }
 
-    // 🚀 INICIAR AVALIAÇÃO PARA O ALUNO
+    // 🔋 Consultar bateria de um dispositivo
+    async function obterBateriaDispositivo(dispositivoId: string): Promise<number | null> {
+        if (!dispositivoId) return null;
+        return await verificarBateriaDispositivo(dispositivoId);
+    }
+
+    // 📚 Consultar disciplinas aplicadas de uma avaliação/dispositivo
+    async function obterDisciplinaAplicada(avaliacaoOuDispositivoId: string): Promise<DisciplinaAplicada[]> {
+        if (!avaliacaoOuDispositivoId) return [];
+        return await buscarDisciplinasAplicadas(avaliacaoOuDispositivoId);
+    }
+
+    // 🚀 Iniciar avaliação para o aluno
     async function handleIniciar(idAluno: number) {
-        // 1. Valida se a Avaliação foi selecionada no filtro
         if (!avaliacao) {
-            alert("Por favor, selecione uma Avaliação no filtro antes de iniciar.");
+            Alert.alert("Aviso", "Por favor, selecione uma Avaliação no filtro antes de iniciar.");
             return;
         }
 
-        // 2. Busca o ID do dispositivo associado ao aluno
         const dispositivoId = dispositivosAtribuidos[idAluno];
 
         if (!dispositivoId) {
-            alert("Selecione um dispositivo para este aluno antes de iniciar.");
+            Alert.alert("Aviso", "Selecione um dispositivo para este aluno antes de iniciar.");
             return;
         }
 
-        // 3. Localiza o aluno na lista
         const aluno = alunos.find((a) => a.id === idAluno);
 
         try {
             setMenuAberto(null);
 
-            // 📌 4. Grava a liberação no SQLite (liberacoes_prova) para o tablet buscar via /recebeprova
             await liberarProvaParaDispositivo(
                 dispositivoId,
                 avaliacao,
@@ -232,30 +262,114 @@ export function useConsulta() {
                 }
             );
 
-            // 5. Atualiza o status local da tela para "Iniciado"
             setStatusAlunos((prev) => ({ ...prev, [idAluno]: "Iniciado" }));
-            console.log(`✅ Prova gravada na tabela 'liberacoes_prova' para o aluno ${aluno?.nome} (Tablet: ${dispositivoId})`);
-
-        } catch (error: any) {
+            console.log(`✅ Prova liberada para ${aluno?.nome} no Tablet (${dispositivoId})`);
+        } catch (error: unknown) {
             console.error("❌ Erro ao liberar prova no banco:", error);
-            alert(error?.message || "Não foi possível liberar a prova para este dispositivo.");
+            const mensagem = error instanceof Error ? error.message : "Não foi possível liberar a prova.";
+            Alert.alert("Erro", mensagem);
         }
     }
 
-    function handlePausar(id: number) {
-        console.log("Pausar aluno ID:", id);
-        setStatusAlunos((prev) => ({ ...prev, [id]: "Pausado" }));
-        setMenuAberto(null);
+    // 🚀 Iniciar avaliação para TODOS os alunos válidos da lista
+    async function handleIniciarTodos() {
+        if (!avaliacao) {
+            Alert.alert("Aviso", "Por favor, selecione uma Avaliação no filtro antes de iniciar para todos.");
+            return;
+        }
+
+        // Filtra apenas alunos que têm um dispositivo associado e que ainda não concluíram
+        const alunosParaIniciar = alunos.filter((aluno) => {
+            const dispId = dispositivosAtribuidos[aluno.id];
+            const status = obterStatusAluno(aluno.id, aluno.status);
+            return dispId && status !== "Concluído" && status !== "Iniciado";
+        });
+
+        if (alunosParaIniciar.length === 0) {
+            Alert.alert(
+                "Aviso",
+                "Nenhum aluno elegível encontrado. Certifique-se de vincular os dispositivos aos alunos antes de iniciar."
+            );
+            return;
+        }
+
+        Alert.alert(
+            "Confirmação",
+            `Deseja iniciar a prova para ${alunosParaIniciar.length} aluno(s)?`,
+            [
+                {
+                    text: "Cancelar",
+                    style: "cancel",
+                },
+                {
+                    text: "Iniciar",
+                    onPress: async () => {
+                        setMenuAberto(null);
+
+                        const promessas = alunosParaIniciar.map(async (aluno) => {
+                            const dispositivoId = dispositivosAtribuidos[aluno.id];
+
+                            try {
+                                await liberarProvaParaDispositivo(dispositivoId, avaliacao, {
+                                    id: aluno.id,
+                                    nome: aluno.nome || "Aluno Sem Nome",
+                                });
+
+                                setStatusAlunos((prev) => ({ ...prev, [aluno.id]: "Iniciado" }));
+                            } catch (error) {
+                                console.error(`❌ Erro ao liberar prova para o aluno ${aluno.nome}:`, error);
+                            }
+                        });
+
+                        await Promise.allSettled(promessas);
+                        Alert.alert("Sucesso", "Processo de liberação em massa concluído!");
+                    },
+                },
+            ],
+            { cancelable: true }
+        );
     }
 
+    // ⏸️ Pausar ou Retomar a prova do aluno
+    async function handlePausar(idAluno: number) {
+        const dispositivoId = dispositivosAtribuidos[idAluno];
+
+        if (!dispositivoId) {
+            Alert.alert("Aviso", "Nenhum dispositivo está vinculado a este aluno.");
+            return;
+        }
+
+        const estaPausadoAtual = statusAlunos[idAluno] === "Pausado";
+        const novoStatusPausa = !estaPausadoAtual;
+
+        try {
+            setMenuAberto(null);
+
+            await atualizarPausaDispositivo(dispositivoId, novoStatusPausa);
+
+            setStatusAlunos((prev) => ({
+                ...prev,
+                [idAluno]: novoStatusPausa ? "Pausado" : "Iniciado",
+            }));
+
+            console.log(`✅ Status do Dispositivo ${dispositivoId} atualizado para Pausado=${novoStatusPausa}`);
+        } catch (error: unknown) {
+            console.error(`❌ Erro ao atualizar pausa do aluno ${idAluno}:`, error);
+            const mensagem = error instanceof Error ? error.message : "Erro ao tentar pausar/retomar a prova.";
+            Alert.alert("Erro", mensagem);
+        }
+    }
+
+    // 🔄 Reiniciar Prova do Aluno
     function handleReiniciar(id: number) {
-        console.log("Reiniciar aluno ID:", id);
+        console.log("Reiniciando estado do aluno ID:", id);
         setStatusAlunos((prev) => ({ ...prev, [id]: "Não iniciado" }));
         setMenuAberto(null);
     }
 
+    // 📡 Iniciar servidor de Sockets
     function handleIniciarServidor() {
-        console.log("Servidor iniciado");
+        console.log("Iniciando Socket Server...");
         startServer();
     }
 
@@ -291,8 +405,13 @@ export function useConsulta() {
         limparFiltros,
         toggleMenu,
         handleIniciar,
+        handleIniciarTodos,
         handlePausar,
         handleReiniciar,
         handleIniciarServidor,
+
+        // 🟢 Funções expostas para uso no componente de tela
+        obterBateriaDispositivo,
+        obterDisciplinaAplicada,
     };
 }

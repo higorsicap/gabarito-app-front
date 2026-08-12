@@ -4,6 +4,7 @@ import HTTPServer from 'react-native-http-bridge-refurbished';
 import { NetworkInfo } from 'react-native-network-info';
 
 import {
+    buscarPausaDispositivo,
     buscarProvaLiberadaParaDispositivo,
     liberarProvaNoBanco,
     salvarDispositivoOuAtualizar,
@@ -21,6 +22,7 @@ export interface DispositivoConectado {
     ip: string;
     status: 'conectado' | 'prova_enviada' | 'erro';
     conectado_em: string;
+    bateria?: number | null;
 }
 
 let serverStarted = false;
@@ -378,6 +380,31 @@ export async function startServer() {
                             clientes: clientesConectados,
                             servidor: serverInfo,
                         })
+                    );
+                    return;
+                }
+
+                // =====================================
+                // 🔥 GET /pausado
+                // =====================================
+                if (request.type === 'GET' && request.url === '/pausado') {
+                    const dispositivoId = request.headers['dispositivo-id'] || request.headers['id-tablet'] || request.headers['id'];
+                    if (!dispositivoId) {
+                        HTTPServer.respond(
+                            request.requestId,
+                            400,
+                            'application/json',
+                            JSON.stringify({ erro: 'dispositivoId é obrigatório' })
+                        );
+                        return;
+                    }
+
+                    const pausado = await buscarPausaDispositivo(dispositivoId);
+                    HTTPServer.respond(
+                        request.requestId,
+                        200,
+                        'application/json',
+                        JSON.stringify({ pausado })
                     );
                     return;
                 }

@@ -39,13 +39,77 @@ export async function enviarProvaSelecionada(idAvaliacaoSaedMob: number | string
                 asm.tempo_prova,
                 json_group_array(
                     json_object(
-                        'id_questao', aqsm.id_questao,
-                        'conteudo', aqsm.conteudo,
-                        'descricao_alternativa', aqsm.descricao_alternativa
+                        'id_disciplina', disc_agrupada.id_disciplina,
+                        'desc_disciplina', disc_agrupada.desc_disciplina,
+                        'questoes', json(disc_agrupada.questoes) -- <--- Adicionado json()
                     )
-                ) AS questoes
-            FROM avaliacao_saed_mob asm 
-            LEFT JOIN ava_questoes_saed_mob aqsm ON aqsm.id_avaliacao_saed_mob = asm.id_avaliacao_saed_mob
+                ) AS disciplinas
+            FROM avaliacao_saed_mob asm
+            LEFT JOIN (
+                -- STEP 4: Agrupa as questões de cada disciplina
+                SELECT 
+                    id_avaliacao_saed_mob,
+                    id_disciplina,
+                    desc_disciplina,
+                    json_group_array(
+                        json_object(
+                            'id_questao', id_questao,
+                            'conteudo', conteudo,
+                            'alternativas', json(alternativas) -- <--- Adicionado json()
+                        )
+                    ) AS questoes
+                FROM (
+                    -- STEP 3: Transforma a lista de alternativas em JSON por questão e disciplina
+                    SELECT 
+                        id_avaliacao_saed_mob,
+                        id_disciplina,
+                        desc_disciplina,
+                        id_questao,
+                        conteudo,
+                        json_group_array(
+                            json_object(
+                                'id_alternativa', id_pergunta_alternativa,
+                                'letra', letra,
+                                'texto', descricao_alternativa
+                            )
+                        ) AS alternativas
+                    FROM (
+                        -- STEP 2: Gera a letra (A, B, C, D)
+                        SELECT 
+                            id_avaliacao_saed_mob,
+                            id_disciplina,
+                            desc_disciplina,
+                            id_questao,
+                            conteudo,
+                            id_pergunta_alternativa,
+                            descricao_alternativa,
+                            CHAR(64 + ROW_NUMBER() OVER (
+                                PARTITION BY id_avaliacao_saed_mob, id_disciplina, id_questao 
+                                ORDER BY id_pergunta_alternativa ASC
+                            )) AS letra
+                        FROM (
+                            -- STEP 1: Garante unicidade das alternativas
+                            SELECT 
+                                aqsm.id_avaliacao_saed_mob,
+                                aqsm.id_disciplina,
+                                aqsm.desc_disciplina,
+                                aqsm.id_questao,
+                                aqsm.conteudo,
+                                aqsm.id_pergunta_alternativa,
+                                aqsm.descricao_alternativa
+                            FROM ava_questoes_saed_mob aqsm
+                            WHERE aqsm.id_avaliacao_saed_mob = $idAvaliacaoSaedMob
+                            GROUP BY 
+                                aqsm.id_avaliacao_saed_mob, 
+                                aqsm.id_disciplina,
+                                aqsm.id_questao, 
+                                aqsm.id_pergunta_alternativa
+                        ) sub_unicas
+                    ) sub_ordenada
+                    GROUP BY id_avaliacao_saed_mob, id_disciplina, id_questao
+                ) sub_questoes
+                GROUP BY id_avaliacao_saed_mob, id_disciplina
+            ) AS disc_agrupada ON disc_agrupada.id_avaliacao_saed_mob = asm.id_avaliacao_saed_mob
             WHERE asm.id_avaliacao_saed_mob = $idAvaliacaoSaedMob
             GROUP BY asm.id_avaliacao_saed_mob;
             `,
@@ -54,34 +118,34 @@ export async function enviarProvaSelecionada(idAvaliacaoSaedMob: number | string
 
         // ✅ Tratamento seguro para evitar crash no JSON.parse
         const resultadoFormatado = result.map(row => {
-            let questaoArray = [];
+            let disciplinasArray = [];
 
-            if (row.questoes) {
+            if (row.disciplinas) {
                 try {
-                    // Se o SQLite já retornou um objeto/array JS, usa direto. Se for string, faz o parse.
-                    questaoArray = typeof row.questoes === 'string'
-                        ? JSON.parse(row.questoes)
-                        : row.questoes;
+                    disciplinasArray = typeof row.disciplinas === 'string'
+                        ? JSON.parse(row.disciplinas)
+                        : row.disciplinas;
                 } catch (parseError) {
-                    console.error("⚠️ Erro ao converter JSON da questão na linha:", row.id_avaliacao_saed_mob, parseError);
-                    questaoArray = [];
+                    console.error("⚠️ Erro ao converter JSON de disciplinas:", parseError);
+                    disciplinasArray = [];
                 }
             }
 
             return {
                 ...row,
-                questoes: questaoArray
+                disciplinas: disciplinasArray
             };
         });
 
-        return resultadoFormatado;
+        return resultadoFormatado[0] || null; // Retorna o objeto da prova diretamente se houver
+
 
     } catch (error) {
         console.error("🚨 Erro na busca do SQLite:", error);
         throw error;
     }
 }
-// Tipagem para os dados retornados do SQLite
+
 export interface AvaliacaoSelect {
     id_avaliacao_saed_mob: number;
     descricao_avaliacao: string;
@@ -113,6 +177,7 @@ export interface EscolaSelect {
     nome_escola: string;
 
 }
+
 export async function preencherSelectEscola(): Promise<EscolaSelect[]> {
 
     try {
@@ -167,10 +232,7 @@ export interface AlunoSelect {
     status: string; // Ex: "Pendente", "Concluído"
 }
 
-export async function listarAlunoEscolaTurma(
-    idEscola: string | number,
-    idTurma: string | number
-): Promise<AlunoSelect[]> {
+export async function listarAlunoEscolaTurma(idEscola: string | number, idTurma: string | number): Promise<AlunoSelect[]> {
     try {
         // Se falta escola ou turma, não executa a busca
         if (!idEscola || !idTurma) return [];
@@ -206,9 +268,17 @@ export async function listarAlunoEscolaTurma(
 export async function salvarDispositivoOuAtualizar(disp: DispositivoConectado): Promise<void> {
     try {
         const query = `
-      INSERT OR REPLACE INTO dispositivos (
-        id, nome, modelo, marca, versao, ip, status, conectado_em
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            INSERT OR REPLACE INTO dispositivos (
+                id, 
+                nome, 
+                modelo, 
+                marca, 
+                versao, 
+                ip, 
+                status, 
+                conectado_em, 
+                bateria
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
         await db.runAsync(query, [
@@ -220,6 +290,7 @@ export async function salvarDispositivoOuAtualizar(disp: DispositivoConectado): 
             disp.ip || '',
             disp.status || 'conectado',
             disp.conectado_em || new Date().toISOString(),
+            disp.bateria || null
         ]);
 
         console.log(`💾 Dispositivo ${disp.id} registrado/atualizado no SQLite.`);
@@ -245,7 +316,12 @@ export async function liberarProvaNoBanco(
         // 2. Prepara o INSERT OR REPLACE
         const query = `
             INSERT OR REPLACE INTO liberacoes_prova (
-                dispositivo_id, nome_aluno, prova_json, liberada, entregue, data_liberacao
+                dispositivo_id, 
+                nome_aluno, 
+                prova_json, 
+                liberada, 
+                entregue, 
+                data_liberacao
             ) VALUES (?, ?, ?, 1, 0, ?);
         `;
 
@@ -271,9 +347,13 @@ export async function buscarProvaLiberadaParaDispositivo(dispositivoId: string):
     try {
         // Consulta considerando liberada = 1 e entregue = 0
         const query = `
-      SELECT * FROM liberacoes_prova 
-      WHERE dispositivo_id = ? AND liberada = 1 AND entregue = 0 
-      LIMIT 1;
+            SELECT 
+                * 
+            FROM liberacoes_prova 
+            WHERE dispositivo_id = ? 
+                AND liberada = 1 
+                AND entregue = 0 
+            LIMIT 1;
     `;
 
         const registro = await db.getFirstAsync<{
@@ -293,7 +373,9 @@ export async function buscarProvaLiberadaParaDispositivo(dispositivoId: string):
 
         // Marca como entregue para o tablet não baixar novamente em futuros polls
         await db.runAsync(
-            `UPDATE liberacoes_prova SET entregue = 1 WHERE id = ?;`,
+            `UPDATE liberacoes_prova 
+            SET entregue = 1 
+            WHERE id = ?;`,
             [registro.id]
         );
 
@@ -304,6 +386,109 @@ export async function buscarProvaLiberadaParaDispositivo(dispositivoId: string):
         };
     } catch (error) {
         console.error('❌ Erro ao buscar prova liberada no SQLite:', error);
+        return null;
+    }
+}
+
+export async function verificarEAtualizarBateriaDispositivo(dispositivoId: string, bateria: number | null): Promise<void> {
+    try {
+        const query = `
+            UPDATE dispositivos 
+            SET bateria = ? 
+            WHERE id = ?;
+        `;
+        await db.runAsync(query, [bateria, dispositivoId]);
+    } catch (error) {
+        console.error('❌ Erro ao atualizar bateria do dispositivo:', error);
+        throw error;
+    }
+}
+
+export async function atualizarPausaDispositivo(dispositivoId: string, statusPausa: boolean): Promise<void> {
+    try {
+        await db.runAsync(
+            `
+            UPDATE liberacoes_prova 
+            SET pausada = ? 
+            WHERE dispositivo_id     = ?;
+            `,
+            [statusPausa ? 1 : 0, dispositivoId]
+        );
+    } catch (error) {
+        console.error('❌ Erro ao atualizar pausa do dispositivo:', error);
+        throw error;
+    }
+}
+
+export async function buscarPausaDispositivo(dispositivoId: string): Promise<boolean> {
+    try {
+        const registro = await db.getFirstAsync<{ pausada: number }>(
+            `
+            SELECT 
+                pausada 
+            FROM liberacoes_prova 
+            WHERE dispositivo_id = ? 
+            LIMIT 1;
+            `,
+            [dispositivoId]
+        );
+        // Verifica pausada (se for 1, retorna true)
+        return Number(registro?.pausada) === 1;
+    } catch (error) {
+        console.error('❌ Erro ao buscar pausa do dispositivo:', error);
+        return false;
+    }
+}
+
+export interface DisciplinaAplicada {
+    id_disciplina?: string | number;
+    nome: string;
+    total: number;
+    respondidas?: number;
+}
+
+export async function buscarDisciplinasAplicadas(dispositivoId: string): Promise<DisciplinaAplicada[]> {
+    try {
+        // Usa getAllAsync para retornar um Array com TODAS as disciplinas (e não apenas a primeira)
+        const registros = await db.getAllAsync<DisciplinaAplicada>(
+            `
+            SELECT 
+                aqsm.id_disciplina,
+                aqsm.desc_disciplina AS nome,
+                COUNT(DISTINCT aqsm.id_questao) AS total
+            FROM ava_questoes_saed_mob aqsm 
+            WHERE aqsm.id_avaliacao_saed_mob = ?
+            GROUP BY 
+                aqsm.id_disciplina,
+                aqsm.desc_disciplina;
+            `,
+            [dispositivoId]
+        );
+
+        return registros ?? [];
+    } catch (error) {
+        console.error('❌ Erro ao buscar disciplinas aplicadas do dispositivo:', error);
+        return [];
+    }
+}
+
+export async function verificarBateriaDispositivo(dispositivoId: string): Promise<number | null> {
+    try {
+        const registro = await db.getFirstAsync<{ bateria: number | null }>(
+            `
+            SELECT 
+                d.id, 
+                d.bateria
+            FROM dispositivos d 
+            JOIN liberacoes_prova lp ON lp.dispositivo_id = d.id 
+            WHERE lp.dispositivo_id = ?
+            `,
+            [dispositivoId]
+        );
+
+        return registro?.bateria ?? null;
+    } catch (error) {
+        console.error('❌ Erro ao buscar bateria do dispositivo:', error);
         return null;
     }
 }

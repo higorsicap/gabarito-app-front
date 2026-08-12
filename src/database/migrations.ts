@@ -26,6 +26,8 @@ export function iniciarDb() {
                 id_ava_questoes_saed_mob INTEGER PRIMARY KEY AUTOINCREMENT,
                 id_avaliacao_saed_mob INTEGER NOT NULL,
                 id_questao INTEGER,
+                id_disciplina INTEGER,
+                desc_disciplina TEXT,
                 conteudo TEXT,
                 id_pergunta_alternativa INTEGER,
                 descricao_alternativa TEXT,
@@ -101,9 +103,11 @@ export function iniciarDb() {
             IF NOT EXISTS liberacoes_prova (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 dispositivo_id TEXT UNIQUE NOT NULL,
+                dispositivo_substituto_id TEXT,
                 nome_aluno TEXT,
                 prova_json TEXT NOT NULL,
                 liberada INTEGER DEFAULT 0,
+                pausada INTEGER DEFAULT 0,
                 entregue INTEGER DEFAULT 0,
                 data_liberacao DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (dispositivo_id) REFERENCES dispositivos (id) ON DELETE CASCADE
@@ -119,6 +123,7 @@ export function iniciarDb() {
                 marca TEXT,
                 versao TEXT,
                 ip TEXT,
+                bateria INTEGER,
                 status TEXT DEFAULT 'CONECTADO',
                 conectado_em DATETIME DEFAULT CURRENT_TIMESTAMP
         );    

@@ -148,6 +148,7 @@ const styles = StyleSheet.create({
     logoutItem: {
         flexDirection: "row",
         alignItems: "center",
+        marginBottom: 25,
     },
     logoutText: {
         fontSize: 18,

@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo } from "react";
 import {
     ActivityIndicator,
     FlatList,
-    Pressable,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -15,25 +14,23 @@ import {
 
 export default function ConsultaScreen() {
     const {
-        avaliacoesOpcoes,
-        escolasOpcoes,
-        turmasOpcoes,
-        dispositivosOpcoes,
-        dispositivosAtribuidos,
+        avaliacoesOpcoes = [],
+        escolasOpcoes = [],
+        turmasOpcoes = [],
+        dispositivosOpcoes = [],
+        dispositivosAtribuidos = {},
         atribuirDispositivo,
         obterStatusAluno,
         carregandoOpcoes,
         carregandoTurmas,
         carregandoAlunos,
         filtros,
-        menuAberto,
-        alunos,
+        alunos = [],
         limparFiltros,
-        toggleMenu,
-        handleIniciar,
         handlePausar,
-        handleReiniciar,
         handleIniciarServidor,
+        handleTransferir,
+        handleIniciarTodos,
     } = useConsulta();
 
     const avaliacaoSelecionada = useMemo(() => {
@@ -42,26 +39,27 @@ export default function ConsultaScreen() {
         );
     }, [filtros.avaliacao, avaliacoesOpcoes]);
 
+    // Sincroniza ano e horário com base na avaliação selecionada
     useEffect(() => {
         if (avaliacaoSelecionada) {
             if (avaliacaoSelecionada.id_anoletivo) {
-                filtros.setAno(String(avaliacaoSelecionada.id_anoletivo));
+                filtros.setAno?.(String(avaliacaoSelecionada.id_anoletivo));
             }
 
             if (avaliacaoSelecionada.data_inicio_avaliacao) {
                 const data = new Date(avaliacaoSelecionada.data_inicio_avaliacao);
                 const horas = String(data.getHours()).padStart(2, "0");
                 const minutos = String(data.getMinutes()).padStart(2, "0");
-                filtros.setHorarioInicio(`${horas}:${minutos}`);
+                filtros.setHorarioInicio?.(`${horas}:${minutos}`);
             }
         } else {
-            filtros.setAno("");
-            filtros.setHorarioInicio("");
+            filtros.setAno?.("");
+            filtros.setHorarioInicio?.("");
         }
     }, [avaliacaoSelecionada]);
 
-    // Função para aplicar estilos de acordo com o Status
-    const renderBadgeStatus = (status: StatusAluno) => {
+    // Renderizador visual do badge do Status do aluno
+    const renderBadgeStatus = useCallback((status: StatusAluno) => {
         let badgeStyle = styles.badgePendente;
         let textStyle = styles.txtPendente;
 
@@ -94,129 +92,119 @@ export default function ConsultaScreen() {
                 <Text style={[styles.txtBadge, textStyle]}>{status}</Text>
             </View>
         );
-    };
+    }, []);
 
+    // Header da lista com o formulário de filtros
     const renderHeader = useCallback(
         () => (
-            <>
-                {/* CARD DE FILTROS */}
-                <View style={styles.cardFiltro}>
-                    <Text style={styles.tituloFiltro}>Filtros de Pesquisa</Text>
+            <View style={styles.cardFiltro}>
+                <Text style={styles.tituloFiltro}>Filtros de Pesquisa</Text>
 
-                    {/* AVALIAÇÃO */}
-                    <Text style={styles.label}>Avaliação</Text>
-                    <View style={styles.select}>
-                        <Picker
-                            selectedValue={filtros.avaliacao}
-                            onValueChange={(itemValue) => filtros.setAvaliacao(itemValue)}
-                            enabled={!carregandoOpcoes}
-                            style={{ color: "#1F2937" }}
-                            dropdownIconColor="#1F2937"
-                        >
-                            <Picker.Item label="Selecione uma avaliação" value="" color="#6B7280" />
-                            {avaliacoesOpcoes.map((item) => (
-                                <Picker.Item
-                                    key={item.id_avaliacao_saed_mob}
-                                    label={item.descricao_avaliacao}
-                                    value={String(item.id_avaliacao_saed_mob)}
-                                    color="#1F2937"
-                                />
-                            ))}
-                        </Picker>
-                    </View>
-
-                    {/* ESCOLA */}
-                    <Text style={styles.label}>Escola</Text>
-                    <View style={styles.select}>
-                        <Picker
-                            selectedValue={filtros.escola}
-                            onValueChange={(itemValue) => filtros.setEscola(itemValue)}
-                            enabled={!carregandoOpcoes}
-                            style={{ color: "#1F2937" }}
-                            dropdownIconColor="#1F2937"
-                        >
-                            <Picker.Item label="Selecione uma escola" value="" color="#6B7280" />
-                            {escolasOpcoes.map((item) => (
-                                <Picker.Item
-                                    key={item.id_escola}
-                                    label={item.nome_escola}
-                                    value={String(item.id_escola)}
-                                    color="#1F2937"
-                                />
-                            ))}
-                        </Picker>
-                    </View>
-
-                    {/* TURMA */}
-                    <Text style={styles.label}>Turma</Text>
-                    <View style={styles.select}>
-                        <Picker
-                            selectedValue={filtros.turma}
-                            onValueChange={(itemValue) => filtros.setTurma(itemValue)}
-                            enabled={!carregandoOpcoes && !carregandoTurmas && Boolean(filtros.escola)}
-                            style={{ color: "#1F2937" }}
-                            dropdownIconColor="#1F2937"
-                        >
+                {/* AVALIAÇÃO */}
+                <Text style={styles.label}>Avaliação</Text>
+                <View style={styles.select}>
+                    <Picker
+                        selectedValue={filtros.avaliacao}
+                        onValueChange={(itemValue) => filtros.setAvaliacao(itemValue)}
+                        enabled={!carregandoOpcoes}
+                        style={{ color: "#1F2937" }}
+                        dropdownIconColor="#1F2937"
+                    >
+                        <Picker.Item label="Selecione uma avaliação" value="" color="#6B7280" />
+                        {avaliacoesOpcoes.map((item) => (
                             <Picker.Item
-                                label={
-                                    carregandoTurmas
-                                        ? "Carregando turmas..."
-                                        : filtros.escola
-                                            ? "Selecione uma turma"
-                                            : "Selecione primeiro uma escola"
-                                }
-                                value=""
-                                color="#6B7280"
+                                key={item.id_avaliacao_saed_mob}
+                                label={item.descricao_avaliacao}
+                                value={String(item.id_avaliacao_saed_mob)}
+                                color="#1F2937"
                             />
-                            {turmasOpcoes.map((item) => (
-                                <Picker.Item
-                                    key={item.id_turma}
-                                    label={item.descricao_turma}
-                                    value={String(item.id_turma)}
-                                    color="#1F2937"
-                                />
-                            ))}
-                        </Picker>
-                    </View>
-
-                    {/* ANO */}
-                    <Text style={styles.label}>Ano</Text>
-                    <View style={styles.inputReadonly}>
-                        <Text style={styles.txtReadonly}>
-                            {filtros.ano || "Definido pela avaliação"}
-                        </Text>
-                    </View>
-
-                    {/* HORÁRIO - INÍCIO */}
-                    <Text style={styles.label}>Horário - Início</Text>
-                    <View style={styles.inputReadonly}>
-                        <Text style={styles.txtReadonly}>
-                            {filtros.horarioInicio || "Definido pela avaliação"}
-                        </Text>
-                    </View>
-
-                    {/* BOTÕES DE AÇÃO */}
-                    <View style={styles.botoes}>
-                        <TouchableOpacity style={styles.btnLimpar} onPress={limparFiltros} activeOpacity={0.6}>
-                            <Ionicons name="refresh-outline" size={16} color="#4B5563" />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.btnIniciar} onPress={handleIniciarServidor} activeOpacity={0.7}>
-                            <Ionicons name="play" size={20} color="#000" />
-                            <Text style={styles.txtBtnIniciar}>Iniciar servidor</Text>
-                        </TouchableOpacity>
-                    </View>
+                        ))}
+                    </Picker>
                 </View>
 
-                {/* TABELA - CABEÇALHO */}
-                <View style={styles.tableContainerHeader}>
-                    <View style={styles.tableHeader}>
-                        <Text style={[styles.headerCell, { flex: 2.5, textAlign: "left" }]}>Nome</Text>
-                        <Text style={[styles.headerCell, { flex: 2.5 }]}>Dispositivo</Text>
-                        <Text style={[styles.headerCell, { flex: 2 }]}>Status</Text>
-                        <Text style={[styles.headerCell, { flex: 1 }]}>Ação</Text>
-                    </View>
+                {/* ESCOLA */}
+                <Text style={styles.label}>Escola</Text>
+                <View style={styles.select}>
+                    <Picker
+                        selectedValue={filtros.escola}
+                        onValueChange={(itemValue) => filtros.setEscola(itemValue)}
+                        enabled={!carregandoOpcoes}
+                        style={{ color: "#1F2937" }}
+                        dropdownIconColor="#1F2937"
+                    >
+                        <Picker.Item label="Selecione uma escola" value="" color="#6B7280" />
+                        {escolasOpcoes.map((item) => (
+                            <Picker.Item
+                                key={item.id_escola}
+                                label={item.nome_escola}
+                                value={String(item.id_escola)}
+                                color="#1F2937"
+                            />
+                        ))}
+                    </Picker>
                 </View>
-            </>
+
+                {/* TURMA */}
+                <Text style={styles.label}>Turma</Text>
+                <View style={styles.select}>
+                    <Picker
+                        selectedValue={filtros.turma}
+                        onValueChange={(itemValue) => filtros.setTurma(itemValue)}
+                        enabled={!carregandoOpcoes && !carregandoTurmas && Boolean(filtros.escola)}
+                        style={{ color: "#1F2937" }}
+                        dropdownIconColor="#1F2937"
+                    >
+                        <Picker.Item
+                            label={
+                                carregandoTurmas
+                                    ? "Carregando turmas..."
+                                    : filtros.escola
+                                    ? "Selecione uma turma"
+                                    : "Selecione primeiro uma escola"
+                            }
+                            value=""
+                            color="#6B7280"
+                        />
+                        {turmasOpcoes.map((item) => (
+                            <Picker.Item
+                                key={item.id_turma}
+                                label={item.descricao_turma}
+                                value={String(item.id_turma)}
+                                color="#1F2937"
+                            />
+                        ))}
+                    </Picker>
+                </View>
+
+                {/* BOTÕES DE AÇÃO DOS FILTROS */}
+                <View style={styles.botoes}>
+                    <TouchableOpacity
+                        style={styles.btnLimpar}
+                        onPress={limparFiltros}
+                        activeOpacity={0.6}
+                    >
+                        <Ionicons name="refresh-outline" size={16} color="#4B5563" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.btnIniciar}
+                        onPress={handleIniciarServidor}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="play" size={18} color="#000" />
+                        <Text style={styles.txtBtnIniciar}>Iniciar servidor</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={styles.btnGeral} 
+                        onPress={() => handleIniciarTodos?.()} 
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="options-outline" size={18} color="#FFF" />
+                        <Text style={styles.txtBtnGeral}>Iniciar Avaliação</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
         ),
         [
             filtros,
@@ -227,44 +215,106 @@ export default function ConsultaScreen() {
             turmasOpcoes,
             limparFiltros,
             handleIniciarServidor,
+            handleIniciarTodos,
         ]
     );
 
+    // Item individual da lista de alunos
     const renderItem = useCallback(
-        ({ item, index }: { item: any; index: number }) => {
-            const isMenuAberto = menuAberto === item.id;
-            const ehUltimosItens = index >= alunos.length - 2 && alunos.length > 2;
+        ({ item }: { item: any }) => {
             const dispositivoSelecionado = dispositivosAtribuidos[item.id] || "";
-            const statusAtual = obterStatusAluno(item.id, item.status);
+            const statusAtual = obterStatusAluno ? obterStatusAluno(item.id, item.status) : item.status;
 
-            const executarAcao = (acao: (id: any) => void) => {
-                acao(item.id);
-                toggleMenu(item.id);
-            };
+            const percentualConclusao = item.percentualConclusao ?? 0;
+            const percentualBateria = item.percentualBateria ?? 0;
+            const disciplinasAplicadas: any[] = item.disciplina_aplicada || item.disciplinasAplicadas || [];
 
             return (
-                <View style={[styles.tableContainerRow, isMenuAberto && { zIndex: 9999, elevation: 9999 }]}>
-                    <View style={styles.tableRow}>
-                        {/* NOME DO ALUNO */}
-                        <Text
-                            style={[
-                                styles.cellText,
-                                { flex: 2.5, textAlign: "left", color: "#1F2937", fontWeight: "500" },
-                            ]}
-                            numberOfLines={1}
-                        >
+                <View style={styles.cardAluno}>
+                    {/* CABEÇALHO DO CARD: Nome e Status */}
+                    <View style={styles.cardHeader}>
+                        <Text style={styles.nomeAluno} numberOfLines={2}>
                             {item.nome}
                         </Text>
+                        {renderBadgeStatus(statusAtual)}
+                    </View>
 
-                        {/* SELECT DE DISPOSITIVO */}
-                        <View style={[styles.selectCell, { flex: 2.5 }]}>
+                    {/* CORPO DO CARD */}
+                    <View style={styles.cardBody}>
+                        {/* LINHA SUPERIOR: Nome da Prova + % Conclusão + % Bateria */}
+                        <View style={styles.provaHeaderRow}>
+                            <View style={styles.provaTitleContainer}>
+                                <Ionicons name="document-text-outline" size={16} color="#6B7280" />
+                                <Text style={styles.infoLabel}>Prova:</Text>
+                                <Text style={styles.infoValue} numberOfLines={1}>
+                                    {item.provaNome || avaliacaoSelecionada?.descricao_avaliacao || "Não informada"}
+                                </Text>
+                            </View>
+
+                            <View style={styles.provaMetricsRight}>
+                                <View style={styles.metricBadge}>
+                                    <Text style={styles.metricBadgeText}>{percentualConclusao}%</Text>
+                                    <Text style={styles.metricBadgeLabel}>Conclusão</Text>
+                                </View>
+
+                                <View style={styles.bateriaBadge}>
+                                    <Ionicons 
+                                        name={percentualBateria <= 20 ? "battery-dead-outline" : "battery-charging-outline"} 
+                                        size={14} 
+                                        color={percentualBateria <= 20 ? "#EF4444" : "#10B981"} 
+                                    />
+                                    <Text style={[styles.bateriaText, { color: percentualBateria <= 20 ? "#EF4444" : "#10B981" }]}>
+                                        {percentualBateria}%
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+
+                        {/* LISTA DE DISCIPLINAS APLICADAS */}
+                        <View style={styles.disciplinasSection}>
+                            <Text style={styles.disciplinasSectionTitle}>Disciplinas Aplicadas</Text>
+                            
+                            {disciplinasAplicadas.length > 0 ? (
+                                disciplinasAplicadas.map((disc: any, index: number) => {
+                                    const resp = disc.respondidas ?? 0;
+                                    const tot = disc.total ?? 0;
+
+                                    return (
+                                        <View key={disc.id || disc.id_disciplina || index} style={styles.disciplinaCard}>
+                                            <Text style={styles.disciplinaNome} numberOfLines={1}>
+                                                {disc.nome || disc.descricao_disciplina || disc.disciplina || `Disciplina ${index + 1}`}
+                                            </Text>
+                                            <View style={styles.disciplinaMetricas}>
+                                                <View style={styles.metricMini}>
+                                                    <Text style={styles.metricMiniVal}>{resp}</Text>
+                                                    <Text style={styles.metricMiniLab}>Respondidas</Text>
+                                                </View>
+                                                <Text style={styles.metricDivider}>/</Text>
+                                                <View style={styles.metricMini}>
+                                                    <Text style={styles.metricMiniVal}>{tot}</Text>
+                                                    <Text style={styles.metricMiniLab}>Total</Text>
+                                                </View>
+                                            </View>
+                                        </View>
+                                    );
+                                })
+                            ) : (
+                                <Text style={styles.emptyDisciplinasText}>Nenhuma disciplina vinculada.</Text>
+                            )}
+                        </View>
+                    </View>
+
+                    {/* BARRA DE AÇÕES INFERIOR */}
+                    <View style={styles.cardFooter}>
+                        {/* Seletor de Dispositivo */}
+                        <View style={styles.selectDispositivo}>
                             <Picker
                                 selectedValue={dispositivoSelecionado}
-                                onValueChange={(val) => atribuirDispositivo(item.id, val)}
+                                onValueChange={(val) => atribuirDispositivo?.(item.id, val)}
                                 style={styles.pickerTableCell}
                                 dropdownIconColor="#1F2937"
                             >
-                                <Picker.Item label="Selecione" value="" color="#9CA3AF" style={{ fontSize: 12 }} />
+                                <Picker.Item label="Selecione o dispositivo" value="" color="#9CA3AF" style={{ fontSize: 12 }} />
                                 {dispositivosOpcoes.map((d) => (
                                     <Picker.Item
                                         key={d.id}
@@ -277,74 +327,39 @@ export default function ConsultaScreen() {
                             </Picker>
                         </View>
 
-                        {/* STATUS DINÂMICO */}
-                        <View style={[styles.cellContainer, { flex: 2 }]}>
-                            {renderBadgeStatus(statusAtual)}
-                        </View>
-
-                        {/* AÇÕES */}
-                        <View style={styles.actionCell}>
+                        {/* Botões de Ação */}
+                        <View style={styles.footerBotoes}>
                             <TouchableOpacity
-                                style={styles.btnIconAction}
-                                onPress={() => toggleMenu(item.id)}
-                                activeOpacity={0.4}
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                style={styles.btnActionPausar}
+                                onPress={() => handlePausar?.(item.id)}
+                                activeOpacity={0.7}
                             >
-                                <Ionicons name="ellipsis-vertical" size={20} color="#4dabf7" />
+                                <Ionicons name="pause" size={14} color="#DC2626" />
+                                <Text style={styles.txtBtnPausar}>Pausar</Text>
                             </TouchableOpacity>
 
-                            {/* DROPDOWN MENU */}
-                            {isMenuAberto && (
-                                <View
-                                    style={[
-                                        styles.menuAcoes,
-                                        ehUltimosItens ? styles.menuAcoesCima : styles.menuAcoesBaixo,
-                                    ]}
-                                >
-                                    <TouchableOpacity
-                                        style={styles.itemMenu}
-                                        onPress={() => executarAcao(handleIniciar)}
-                                        activeOpacity={0.6}
-                                    >
-                                        <Ionicons name="play-outline" size={16} color="#4B5563" />
-                                        <Text style={styles.txtItemMenu}>Iniciar</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={styles.itemMenu}
-                                        onPress={() => executarAcao(handlePausar)}
-                                        activeOpacity={0.6}
-                                    >
-                                        <Ionicons name="pause-outline" size={16} color="#4B5563" />
-                                        <Text style={styles.txtItemMenu}>Pausar</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={[styles.itemMenu, { borderBottomWidth: 0 }]}
-                                        onPress={() => executarAcao(handleReiniciar)}
-                                        activeOpacity={0.6}
-                                    >
-                                        <Ionicons name="reload-outline" size={16} color="#4B5563" />
-                                        <Text style={styles.txtItemMenu}>Reiniciar</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
+                            <TouchableOpacity
+                                style={styles.btnActionTransferir}
+                                onPress={() => handleTransferir?.(item.id)}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="swap-horizontal" size={14} color="#2563EB" />
+                                <Text style={styles.txtBtnTransferir}>Transferir</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
                 </View>
             );
         },
         [
-            menuAberto,
-            alunos.length,
             dispositivosOpcoes,
             dispositivosAtribuidos,
             atribuirDispositivo,
             obterStatusAluno,
-            toggleMenu,
-            handleIniciar,
             handlePausar,
-            handleReiniciar,
+            handleTransferir,
+            avaliacaoSelecionada,
+            renderBadgeStatus,
         ]
     );
 
@@ -352,37 +367,11 @@ export default function ConsultaScreen() {
         <View style={styles.container}>
             <BottomNav />
 
-            {/* Overlay em Pressable para capturar o toque fora do menu */}
-            {menuAberto !== null && (
-                <Pressable
-                    style={styles.overlayFora}
-                    onPress={() => toggleMenu(null)}
-                />
-            )}
-
             <FlatList
                 data={alunos}
                 keyExtractor={(item) => String(item.id)}
                 ListHeaderComponent={renderHeader}
                 contentContainerStyle={styles.scrollContainer}
-                CellRendererComponent={({ children, style, index, ...props }) => {
-                    const item = alunos[index];
-                    const isMenuAberto = item && menuAberto === item.id;
-                    return (
-                        <View
-                            {...props}
-                            style={[
-                                style,
-                                {
-                                    zIndex: isMenuAberto ? 9999 : 1,
-                                    elevation: isMenuAberto ? 9999 : 2,
-                                },
-                            ]}
-                        >
-                            {children}
-                        </View>
-                    );
-                }}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         {carregandoAlunos ? (
@@ -409,11 +398,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#F3F4F6",
-    },
-    overlayFora: {
-        ...StyleSheet.absoluteFillObject,
-        zIndex: 9998,
-        backgroundColor: "transparent",
     },
     scrollContainer: {
         paddingBottom: 80,
@@ -451,21 +435,9 @@ const styles = StyleSheet.create({
         backgroundColor: "#FAFAFA",
         justifyContent: "center",
     },
-    inputReadonly: {
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderRadius: 8,
-        backgroundColor: "#F3F4F6",
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-        justifyContent: "center",
-    },
-    txtReadonly: {
-        fontSize: 14,
-        color: "#374151",
-    },
     botoes: {
         flexDirection: "row",
+        alignItems: "center",
         justifyContent: "flex-end",
         marginTop: 20,
         gap: 8,
@@ -473,7 +445,7 @@ const styles = StyleSheet.create({
     btnLimpar: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
         paddingVertical: 10,
         borderRadius: 8,
         backgroundColor: "#E5E7EB",
@@ -482,7 +454,7 @@ const styles = StyleSheet.create({
     btnIniciar: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
         paddingVertical: 10,
         borderRadius: 8,
         backgroundColor: "#16f15f",
@@ -491,166 +463,264 @@ const styles = StyleSheet.create({
     txtBtnIniciar: {
         color: "#000",
         fontWeight: "600",
-        fontSize: 14,
-    },
-    tableContainerHeader: {
-        marginHorizontal: 16,
-        backgroundColor: "#FFF",
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-    },
-    tableContainerRow: {
-        marginHorizontal: 16,
-        backgroundColor: "#FFF",
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        overflow: "visible",
-    },
-    tableHeader: {
-        flexDirection: "row",
-        backgroundColor: "#4dabf7",
-        paddingVertical: 12,
-        paddingHorizontal: 8,
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-    },
-    headerCell: {
-        color: "#FFF",
-        fontWeight: "bold",
         fontSize: 13,
-        textAlign: "center",
     },
-    tableRow: {
+    btnGeral: {
         flexDirection: "row",
         alignItems: "center",
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 8,
+        backgroundColor: "#2563EB",
+        gap: 6,
+    },
+    txtBtnGeral: {
+        color: "#FFF",
+        fontWeight: "600",
+        fontSize: 13,
+    },
+
+    /* CARDS DOS ALUNOS */
+    cardAluno: {
+        backgroundColor: "#FFF",
+        borderRadius: 12,
+        marginHorizontal: 16,
+        marginBottom: 12,
+        elevation: 2,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        overflow: "hidden",
+    },
+    cardHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: 14,
         borderBottomWidth: 1,
         borderBottomColor: "#F3F4F6",
-        paddingVertical: 8,
-        paddingHorizontal: 8,
-        position: "relative",
-        overflow: "visible",
     },
-    selectCell: {
+    nomeAluno: {
+        fontSize: 15,
+        fontWeight: "bold",
+        color: "#1F2937",
+        flex: 1,
+        marginRight: 8,
+    },
+    cardBody: {
+        padding: 14,
+        gap: 12,
+    },
+
+    /* Prova + Métricas */
+    provaHeaderRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        backgroundColor: "#F9FAFB",
+        padding: 10,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#F3F4F6",
+    },
+    provaTitleContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        flex: 1,
+        marginRight: 8,
+    },
+    infoLabel: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#6B7280",
+    },
+    infoValue: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#1F2937",
+        flex: 1,
+    },
+    provaMetricsRight: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
+    metricBadge: {
+        alignItems: "center",
+        backgroundColor: "#EFF6FF",
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    metricBadgeText: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#2563EB",
+    },
+    metricBadgeLabel: {
+        fontSize: 9,
+        color: "#3B82F6",
+    },
+    bateriaBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#FFF",
+        paddingHorizontal: 6,
+        paddingVertical: 4,
+        borderRadius: 6,
         borderWidth: 1,
         borderColor: "#E5E7EB",
-        borderRadius: 6,
+        gap: 3,
+    },
+    bateriaText: {
+        fontSize: 11,
+        fontWeight: "700",
+    },
+
+    /* Disciplinas Aplicadas */
+    disciplinasSection: {
+        marginTop: 4,
+        gap: 6,
+    },
+    disciplinasSectionTitle: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#4B5563",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+    },
+    disciplinaCard: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
         backgroundColor: "#FAFAFA",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+    },
+    disciplinaNome: {
+        fontSize: 13,
+        fontWeight: "600",
+        color: "#1F2937",
+        flex: 1,
+        marginRight: 8,
+    },
+    disciplinaMetricas: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: "#FFF",
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: "#F3F4F6",
+    },
+    metricMini: {
+        alignItems: "center",
+    },
+    metricMiniVal: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#1F2937",
+    },
+    metricMiniLab: {
+        fontSize: 8,
+        color: "#6B7280",
+    },
+    metricDivider: {
+        fontSize: 12,
+        color: "#9CA3AF",
+        fontWeight: "300",
+    },
+    emptyDisciplinasText: {
+        fontSize: 12,
+        color: "#9CA3AF",
+        fontStyle: "italic",
+    },
+
+    /* Ações do Card (Footer) */
+    cardFooter: {
+        backgroundColor: "#F8FAFC",
+        borderTopWidth: 1,
+        borderTopColor: "#E2E8F0",
+        padding: 10,
+        gap: 10,
+    },
+    selectDispositivo: {
+        borderWidth: 1,
+        borderColor: "#CBD5E1",
+        borderRadius: 6,
+        backgroundColor: "#FFF",
         justifyContent: "center",
-        marginHorizontal: 4,
-        height: 38,
     },
     pickerTableCell: {
         color: "#1F2937",
-        height: 38,
     },
-    cellContainer: {
-        justifyContent: "center",
+    footerBotoes: {
+        flexDirection: "row",
+        gap: 8,
+    },
+    btnActionPausar: {
+        flex: 1,
+        flexDirection: "row",
         alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#FEE2E2",
+        paddingVertical: 8,
+        borderRadius: 6,
+        gap: 4,
     },
-    cellText: {
-        textAlign: "center",
-        fontSize: 13,
-        color: "#6B7280",
+    txtBtnPausar: {
+        color: "#DC2626",
+        fontWeight: "600",
+        fontSize: 12,
     },
+    btnActionTransferir: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#DBEAFE",
+        paddingVertical: 8,
+        borderRadius: 6,
+        gap: 4,
+    },
+    txtBtnTransferir: {
+        color: "#2563EB",
+        fontWeight: "600",
+        fontSize: 12,
+    },
+
+    /* Badges Status */
     badgeStatus: {
-        paddingHorizontal: 6,
+        paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
     },
-    badgeConcluido: {
-        backgroundColor: "#DEF7EC",
-    },
-    badgeIniciado: {
-        backgroundColor: "#D1E7DD",
-    },
-    badgeNaoIniciado: {
-        backgroundColor: "#E2E8F0",
-    },
-    badgePausado: {
-        backgroundColor: "#FEE2E2",
-    },
-    badgePendente: {
-        backgroundColor: "#FEF3C7",
-    },
-    txtBadge: {
-        fontSize: 10,
-        fontWeight: "700",
-    },
-    txtConcluido: {
-        color: "#03543F",
-    },
-    txtIniciado: {
-        color: "#0F5132",
-    },
-    txtNaoIniciado: {
-        color: "#475569",
-    },
-    txtPausado: {
-        color: "#991B1B",
-    },
-    txtPendente: {
-        color: "#92400E",
-    },
-    actionCell: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        position: "relative",
-        overflow: "visible",
-    },
-    btnIconAction: {
-        padding: 8,
-        borderRadius: 20,
-    },
-    menuAcoes: {
-        position: "absolute",
-        right: 0,
-        backgroundColor: "#FFF",
-        borderRadius: 8,
-        minWidth: 120,
-        elevation: 10,
-        zIndex: 9999,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-    },
-    menuAcoesBaixo: {
-        top: 30,
-    },
-    menuAcoesCima: {
-        bottom: 30,
-    },
-    itemMenu: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "#F3F4F6",
-        gap: 8,
-    },
-    txtItemMenu: {
-        fontSize: 13,
-        color: "#374151",
-    },
+    badgeConcluido: { backgroundColor: "#DEF7EC" },
+    badgeIniciado: { backgroundColor: "#D1E7DD" },
+    badgeNaoIniciado: { backgroundColor: "#E2E8F0" },
+    badgePausado: { backgroundColor: "#FEE2E2" },
+    badgePendente: { backgroundColor: "#FEF3C7" },
+    txtBadge: { fontSize: 10, fontWeight: "700" },
+    txtConcluido: { color: "#03543F" },
+    txtIniciado: { color: "#0F5132" },
+    txtNaoIniciado: { color: "#475569" },
+    txtPausado: { color: "#991B1B" },
+    txtPendente: { color: "#92400E" },
+
+    /* Container Vazio / Carregando */
     emptyContainer: {
         marginHorizontal: 16,
         backgroundColor: "#FFF",
-        borderBottomLeftRadius: 12,
-        borderBottomRightRadius: 12,
+        borderRadius: 12,
         padding: 20,
         alignItems: "center",
         justifyContent: "center",

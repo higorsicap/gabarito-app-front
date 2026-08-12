@@ -151,7 +151,7 @@ export function SyncModal() {
 const styles = StyleSheet.create({
     fabSync: {
         position: 'absolute',
-        bottom: 25,
+        bottom: 65,
         left: 20,
         backgroundColor: '#4CAF50',
         width: 55,
