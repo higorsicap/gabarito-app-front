@@ -1,8 +1,7 @@
 import { db } from "./database";
 
 export function iniciarDb() {
-
-    db.execSync(`
+  db.execSync(`
         CREATE TABLE 
             IF NOT EXISTS avaliacao_saed_mob (
             id_avaliacao_saed_mob INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,7 +19,7 @@ export function iniciarDb() {
         );
     `);
 
-    db.execSync(`
+  db.execSync(`
         CREATE TABLE
             IF NOT EXISTS ava_questoes_saed_mob (
                 id_ava_questoes_saed_mob INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,20 +35,37 @@ export function iniciarDb() {
             );
     `);
 
-    db.execAsync(`
+  db.execAsync(`
+        CREATE TABLE 
+            IF NOT EXISTS 'ava_estudante_saed'(
+                id_ava_estudante_saed INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_cliente INTEGER,
+                id_escola INTEGER,
+                id_serie INTEGER,
+                id_turma INTEGER,
+                id_estudante_origem INTEGER,
+                nome_estudante TEXT,
+                FOREIGN KEY (id_escola) REFERENCES ava_escolas_saed (id_escola)
+        );
+    `);
+
+  db.execAsync(`
         CREATE TABLE
             IF NOT EXISTS 'aluno_respostas_prova_saed' (
                 id_aluno_respostas_prova_saed INTEGER PRIMARY KEY AUTOINCREMENT,
                 id_avaliacao_saed_mob INTEGER NOT NULL,
-                id_aluno INTEGER,
+                id_ava_estudante_saed INTEGER,
                 id_questao INTEGER,
                 id_pergunta_alternativa INTEGER,
-                descricao_alternativa TEXT, 
+                esta_marcada INTEGER DEFAULT 0,
+                esta_correta INTEGER DEFAULT 0,
                 FOREIGN KEY (id_avaliacao_saed_mob) REFERENCES avaliacao_saed_mob (id_avaliacao_saed_mob)
+                FOREIGN KEY (id_ava_estudante_saed) REFERENCES ava_estudante_saed (id_ava_estudante_saed)
+
             );
     `);
 
-    db.execAsync(`
+  db.execAsync(`
         CREATE TABLE
             IF NOT EXISTS 'prova_sync_saed' (
                 id_prova_sync INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +78,7 @@ export function iniciarDb() {
             ); 
     `);
 
-    db.execAsync(`
+  db.execAsync(`
         CREATE TABLE 
             IF NOT EXISTS 'ava_escolas_saed'(
                 id_ava_escolas_saed INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,7 +88,7 @@ export function iniciarDb() {
         );
     `);
 
-    db.execAsync(`
+  db.execAsync(`
         CREATE TABLE
             IF NOT EXISTS 'ava_turmas_saed'(
                 id_ava_turmas_saed INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,26 +100,13 @@ export function iniciarDb() {
         );
     `);
 
-    db.execAsync(`
-        CREATE TABLE 
-            IF NOT EXISTS 'ava_estudante_saed'(
-                id_ava_estudante_saed INTEGER PRIMARY KEY AUTOINCREMENT,
-                id_cliente INTEGER,
-                id_escola INTEGER,
-                id_serie INTEGER,
-                id_turma INTEGER,
-                id_estudante_origem INTEGER,
-                nome_estudante TEXT,
-                FOREIGN KEY (id_escola) REFERENCES ava_escolas_saed (id_escola)
-        );
-    `)
-
-    db.execAsync(`
+  db.execAsync(`
         CREATE TABLE 
             IF NOT EXISTS liberacoes_prova (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 dispositivo_id TEXT UNIQUE NOT NULL,
                 dispositivo_substituto_id TEXT,
+                id_ava_estudante_saed INTEGER,
                 nome_aluno TEXT,
                 prova_json TEXT NOT NULL,
                 liberada INTEGER DEFAULT 0,
@@ -111,10 +114,11 @@ export function iniciarDb() {
                 entregue INTEGER DEFAULT 0,
                 data_liberacao DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (dispositivo_id) REFERENCES dispositivos (id) ON DELETE CASCADE
+                FOREIGN KEY (id_ava_estudante_saed) REFERENCES ava_estudante_saed (id_ava_estudante_saed) ON DELETE CASCADE
         );
     `);
 
-    db.execAsync(`
+  db.execAsync(`
         CREATE TABLE 
             IF NOT EXISTS dispositivos (
                 id TEXT PRIMARY KEY NOT NULL,
