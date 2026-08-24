@@ -106,7 +106,7 @@ export function iniciarDb() {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 dispositivo_id TEXT UNIQUE NOT NULL,
                 dispositivo_substituto_id TEXT,
-                id_ava_estudante_saed INTEGER,
+                id_estudante_origem INTEGER,
                 nome_aluno TEXT,
                 prova_json TEXT NOT NULL,
                 liberada INTEGER DEFAULT 0,
@@ -114,7 +114,6 @@ export function iniciarDb() {
                 entregue INTEGER DEFAULT 0,
                 data_liberacao DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (dispositivo_id) REFERENCES dispositivos (id) ON DELETE CASCADE
-                FOREIGN KEY (id_ava_estudante_saed) REFERENCES ava_estudante_saed (id_ava_estudante_saed) ON DELETE CASCADE
         );
     `);
 

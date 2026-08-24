@@ -1,15 +1,16 @@
 import BottomNav from "@/src/components/BottomNav";
+import { liberarProvaNoBanco } from "@/src/database/services/provaRepository";
+import { styles } from "@/src/styles/aplicaProva.styles";
 import { StatusAluno, useConsulta } from "@/src/ts/useAplicarProva";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useCallback, useEffect, useMemo } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function ConsultaScreen() {
@@ -26,7 +27,6 @@ export default function ConsultaScreen() {
     carregandoAlunos,
     filtros,
     alunos = [],
-    limparFiltros,
     handlePausar,
     handleIniciarServidor,
     handleTransferir,
@@ -190,14 +190,6 @@ export default function ConsultaScreen() {
         {/* BOTÕES DE AÇÃO DOS FILTROS */}
         <View style={styles.botoes}>
           <TouchableOpacity
-            style={styles.btnLimpar}
-            onPress={limparFiltros}
-            activeOpacity={0.6}
-          >
-            <Ionicons name="refresh-outline" size={16} color="#4B5563" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={styles.btnIniciar}
             onPress={handleIniciarServidor}
             activeOpacity={0.7}
@@ -224,7 +216,6 @@ export default function ConsultaScreen() {
       avaliacoesOpcoes,
       escolasOpcoes,
       turmasOpcoes,
-      limparFiltros,
       handleIniciarServidor,
       handleIniciarTodos,
     ],
@@ -353,7 +344,26 @@ export default function ConsultaScreen() {
             <View style={styles.selectDispositivo}>
               <Picker
                 selectedValue={dispositivoSelecionado}
-                onValueChange={(val) => atribuirDispositivo?.(item.id, val)}
+                onValueChange={async (val) => {
+                  // Atualiza a atribuição visual no estado local
+                  atribuirDispositivo?.(item.id, val);
+
+                  // Grava no banco SQLite se houver um dispositivo e uma avaliação selecionada
+                  if (val && avaliacaoSelecionada?.id_avaliacao_saed_mob) {
+                    try {
+                      await liberarProvaNoBanco(
+                        val,
+                        avaliacaoSelecionada.id_avaliacao_saed_mob,
+                        {
+                          id: item.id, // Passa o id_estudante_origem
+                          nome: item.nome,
+                        },
+                      );
+                    } catch (err) {
+                      console.error("Erro ao liberar prova no banco:", err);
+                    }
+                  }
+                }}
                 style={styles.pickerTableCell}
                 dropdownIconColor="#1F2937"
               >
@@ -441,346 +451,3 @@ export default function ConsultaScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F3F4F6",
-  },
-  scrollContainer: {
-    paddingBottom: 80,
-  },
-  cardFiltro: {
-    backgroundColor: "#FFF",
-    borderRadius: 12,
-    marginTop: 60,
-    padding: 20,
-    marginHorizontal: 16,
-    marginVertical: 12,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  tituloFiltro: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#1F2937",
-    marginBottom: 8,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#4B5563",
-    marginBottom: 4,
-    marginTop: 10,
-  },
-  select: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 8,
-    backgroundColor: "#FAFAFA",
-    justifyContent: "center",
-  },
-  botoes: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    marginTop: 20,
-    gap: 8,
-  },
-  btnLimpar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: "#E5E7EB",
-    justifyContent: "center",
-  },
-  btnIniciar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: "#16f15f",
-    gap: 6,
-  },
-  txtBtnIniciar: {
-    color: "#000",
-    fontWeight: "600",
-    fontSize: 13,
-  },
-  btnGeral: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: "#2563EB",
-    gap: 6,
-  },
-  txtBtnGeral: {
-    color: "#FFF",
-    fontWeight: "600",
-    fontSize: 13,
-  },
-
-  /* CARDS DOS ALUNOS */
-  cardAluno: {
-    backgroundColor: "#FFF",
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    overflow: "hidden",
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-  },
-  nomeAluno: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#1F2937",
-    flex: 1,
-    marginRight: 8,
-  },
-  cardBody: {
-    padding: 14,
-    gap: 12,
-  },
-
-  /* Prova + Métricas */
-  provaHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#F9FAFB",
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
-  },
-  provaTitleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    flex: 1,
-    marginRight: 8,
-  },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
-  infoValue: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#1F2937",
-    flex: 1,
-  },
-  provaMetricsRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  metricBadge: {
-    alignItems: "center",
-    backgroundColor: "#EFF6FF",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  metricBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#2563EB",
-  },
-  metricBadgeLabel: {
-    fontSize: 9,
-    color: "#3B82F6",
-  },
-  bateriaBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    gap: 3,
-  },
-  bateriaText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-
-  /* Disciplinas Aplicadas */
-  disciplinasSection: {
-    marginTop: 4,
-    gap: 6,
-  },
-  disciplinasSectionTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#4B5563",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  disciplinaCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#FAFAFA",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  disciplinaNome: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1F2937",
-    flex: 1,
-    marginRight: 8,
-  },
-  disciplinaMetricas: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#FFF",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
-  },
-  metricMini: {
-    alignItems: "center",
-  },
-  metricMiniVal: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#1F2937",
-  },
-  metricMiniLab: {
-    fontSize: 8,
-    color: "#6B7280",
-  },
-  metricDivider: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    fontWeight: "300",
-  },
-  emptyDisciplinasText: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    fontStyle: "italic",
-  },
-
-  /* Ações do Card (Footer) */
-  cardFooter: {
-    backgroundColor: "#F8FAFC",
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    padding: 10,
-    gap: 10,
-  },
-  selectDispositivo: {
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 6,
-    backgroundColor: "#FFF",
-    justifyContent: "center",
-  },
-  pickerTableCell: {
-    color: "#1F2937",
-  },
-  footerBotoes: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  btnActionPausar: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FEE2E2",
-    paddingVertical: 8,
-    borderRadius: 6,
-    gap: 4,
-  },
-  txtBtnPausar: {
-    color: "#DC2626",
-    fontWeight: "600",
-    fontSize: 12,
-  },
-  btnActionTransferir: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#DBEAFE",
-    paddingVertical: 8,
-    borderRadius: 6,
-    gap: 4,
-  },
-  txtBtnTransferir: {
-    color: "#2563EB",
-    fontWeight: "600",
-    fontSize: 12,
-  },
-
-  /* Badges Status */
-  badgeStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badgeConcluido: { backgroundColor: "#DEF7EC" },
-  badgeIniciado: { backgroundColor: "#D1E7DD" },
-  badgeNaoIniciado: { backgroundColor: "#E2E8F0" },
-  badgePausado: { backgroundColor: "#FEE2E2" },
-  badgePendente: { backgroundColor: "#FEF3C7" },
-  txtBadge: { fontSize: 10, fontWeight: "700" },
-  txtConcluido: { color: "#03543F" },
-  txtIniciado: { color: "#0F5132" },
-  txtNaoIniciado: { color: "#475569" },
-  txtPausado: { color: "#991B1B" },
-  txtPendente: { color: "#92400E" },
-
-  /* Container Vazio / Carregando */
-  emptyContainer: {
-    marginHorizontal: 16,
-    backgroundColor: "#FFF",
-    borderRadius: 12,
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: "#6B7280",
-    textAlign: "center",
-  },
-});
