@@ -53,14 +53,14 @@ export function iniciarDb() {
         CREATE TABLE
             IF NOT EXISTS 'aluno_respostas_prova_saed' (
                 id_aluno_respostas_prova_saed INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_estudante_origem INTEGER,
                 id_avaliacao_saed_mob INTEGER NOT NULL,
-                id_ava_estudante_saed INTEGER,
+                id_disciplina INTEGER,
                 id_questao INTEGER,
-                id_pergunta_alternativa INTEGER,
-                esta_marcada INTEGER DEFAULT 0,
-                esta_correta INTEGER DEFAULT 0,
+                is_marcada INTEGER,
+                is_correta INTEGER,
                 FOREIGN KEY (id_avaliacao_saed_mob) REFERENCES avaliacao_saed_mob (id_avaliacao_saed_mob)
-                FOREIGN KEY (id_ava_estudante_saed) REFERENCES ava_estudante_saed (id_ava_estudante_saed)
+                FOREIGN KEY (id_estudante_origem) REFERENCES ava_estudante_saed(id_estudante_origem)
 
             );
     `);

@@ -179,6 +179,7 @@ export async function preencherSelectAvaliacao(): Promise<AvaliacaoSelect[]> {
     return [];
   }
 }
+
 export interface EscolaSelect {
   id_escola: number;
   nome_escola: string;
@@ -379,6 +380,7 @@ export async function buscarProvaLiberadaParaDispositivo(
     const registro = await db.getFirstAsync<{
       id: number;
       dispositivo_id: string;
+      id_estudante_origem: string | number | null;
       nome_aluno: string | null;
       prova_json: string;
       liberada: number;
@@ -401,7 +403,9 @@ export async function buscarProvaLiberadaParaDispositivo(
 
     // Retorna a prova formatada
     return {
-      aluno: registro.nome_aluno ? { nome: registro.nome_aluno } : null,
+      aluno: registro.nome_aluno
+        ? { nome: registro.nome_aluno, id: registro.id_estudante_origem }
+        : null,
       ...JSON.parse(registro.prova_json),
     };
   } catch (error) {
@@ -526,4 +530,54 @@ export async function verificarBateriaDispositivo(
     console.error("❌ Erro ao buscar bateria do dispositivo:", error);
     return null;
   }
+}
+
+// No seu arquivo de banco/database:
+export interface RespostaRecebida {
+  id_respostas?: number;
+  id_aluno: number;
+  id_avaliacao_saed_mob: number;
+  id_disciplina: number;
+  id_questao: number;
+  is_marcada: number | null;
+  is_correta: number | null;
+  atualizado_em?: string;
+}
+
+export async function inserirRespostasAluno(
+  respostas: RespostaRecebida[],
+): Promise<void> {
+  if (!Array.isArray(respostas) || respostas.length === 0) {
+    console.warn("⚠️ Nenhuma resposta recebida para inserção.");
+    return;
+  }
+
+  // INSERT OR REPLACE: atualiza a linha se a combinação de (aluno, avaliacao, disciplina, questao) já existir
+  const query = `
+    INSERT OR REPLACE INTO aluno_respostas_prova_saed (
+      id_estudante_origem,
+      id_avaliacao_saed_mob,
+      id_disciplina,
+      id_questao,
+      is_correta,
+      is_marcada
+    ) VALUES (?, ?, ?, ?, ?, ?);
+  `;
+
+  await db.withTransactionAsync(async () => {
+    for (const item of respostas) {
+      await db.runAsync(query, [
+        item.id_aluno, // id_estudante_origem
+        item.id_avaliacao_saed_mob, // id_avaliacao_saed_mob
+        item.id_disciplina, // id_disciplina
+        item.id_questao, // id_questao
+        item.is_correta, // is_correta
+        item.is_marcada, // is_marcada
+      ]);
+    }
+  });
+
+  console.log(
+    `✅ ${respostas.length} respostas inseridas/atualizadas no banco local.`,
+  );
 }

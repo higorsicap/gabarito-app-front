@@ -4,13 +4,13 @@ import HTTPServer from "react-native-http-bridge-refurbished";
 import { NetworkInfo } from "react-native-network-info";
 
 import {
-    buscarPausaDispositivo,
-    buscarProvaLiberadaParaDispositivo,
-    liberarProvaNoBanco,
-    salvarDispositivoOuAtualizar,
+  buscarPausaDispositivo,
+  buscarProvaLiberadaParaDispositivo,
+  inserirRespostasAluno,
+  liberarProvaNoBanco,
+  RespostaRecebida,
+  salvarDispositivoOuAtualizar,
 } from "@/src/database/services/provaRepository";
-
-import { inserirRespostasAluno } from "@/src/database/services/respostaRepository";
 
 // =====================================
 // 📦 TIPAGEM E ESTADO GLOBAL
@@ -238,33 +238,34 @@ export async function startServer() {
         try {
           const body = request.postData ? JSON.parse(request.postData) : {};
 
-          // Supondo que as respostas estejam dentro de body.respostas
-          // ou que o próprio body seja o array de respostas:
-          const listaRespostas = Array.isArray(body)
+          // Extrai o array do payload { id_avaliacao: 1, respostas: [...] }
+          const listaRespostas: RespostaRecebida[] = Array.isArray(body)
             ? body
             : body.respostas || [];
 
-          // 1. Executa o salvamento das respostas no banco local
+          // 1. Grava no banco local
           await inserirRespostasAluno(listaRespostas);
 
-          // 2. Se houver outro processamento necessário, faça aqui
-          const respostaPayload = await processarPayload(body);
+          // 2. Processa payload complementar (se necessário)
+          const respostaPayload =
+            typeof processarPayload === "function"
+              ? await processarPayload(body)
+              : null;
 
-          // 3. Responde com Sucesso (HTTP 200)
+          // 3. Resposta HTTP 200
           HTTPServer.respond(
             request.requestId,
             200,
             "application/json",
             JSON.stringify({
               sucesso: true,
-              mensagem: "Respostas gravadas com sucesso!",
+              mensagem: `${listaRespostas.length} respostas gravadas com sucesso!`,
               dados: respostaPayload,
             }),
           );
         } catch (error: any) {
-          console.error("Erro na rota /enviar:", error);
+          console.error("❌ Erro na rota /enviar:", error);
 
-          // Responde com Erro (HTTP 500) se falhar no banco
           HTTPServer.respond(
             request.requestId,
             500,
