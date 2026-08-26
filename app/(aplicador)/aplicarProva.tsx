@@ -1,5 +1,8 @@
 import BottomNav from "@/src/components/BottomNav";
-import { liberarProvaNoBanco } from "@/src/database/services/provaRepository";
+import {
+  DisciplinaAplicada,
+  liberarProvaNoBanco,
+} from "@/src/database/services/provaRepository";
 import { styles } from "@/src/styles/aplicaProva.styles";
 import { StatusAluno, useConsulta } from "@/src/ts/useAplicarProva";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +19,7 @@ import {
 export default function ConsultaScreen() {
   const {
     avaliacoesOpcoes = [],
+    servidorAtivo,
     escolasOpcoes = [],
     turmasOpcoes = [],
     dispositivosOpcoes = [],
@@ -29,6 +33,7 @@ export default function ConsultaScreen() {
     alunos = [],
     handlePausar,
     handleIniciarServidor,
+    handleEncerrarServidor,
     handleTransferir,
     handleIniciarTodos,
   } = useConsulta();
@@ -190,12 +195,25 @@ export default function ConsultaScreen() {
         {/* BOTÕES DE AÇÃO DOS FILTROS */}
         <View style={styles.botoes}>
           <TouchableOpacity
-            style={styles.btnIniciar}
-            onPress={handleIniciarServidor}
+            style={[styles.btnIniciar, servidorAtivo && styles.btnEncerrar]}
+            onPress={
+              servidorAtivo ? handleEncerrarServidor : handleIniciarServidor
+            }
             activeOpacity={0.7}
           >
-            <Ionicons name="play" size={18} color="#000" />
-            <Text style={styles.txtBtnIniciar}>Iniciar servidor</Text>
+            <Ionicons
+              name={servidorAtivo ? "stop" : "play"}
+              size={18}
+              color={servidorAtivo ? "#FFF" : "#000"}
+            />
+            <Text
+              style={[
+                styles.txtBtnIniciar,
+                servidorAtivo && styles.txtBtnEncerrar,
+              ]}
+            >
+              {servidorAtivo ? "Encerrar servidor" : "Iniciar servidor"}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -218,6 +236,8 @@ export default function ConsultaScreen() {
       turmasOpcoes,
       handleIniciarServidor,
       handleIniciarTodos,
+      handleEncerrarServidor,
+      servidorAtivo,
     ],
   );
 
@@ -229,10 +249,9 @@ export default function ConsultaScreen() {
         ? obterStatusAluno(item.id, item.status)
         : item.status;
 
-      const percentualConclusao = item.percentualConclusao ?? 0;
       const percentualBateria = item.percentualBateria ?? 0;
-      const disciplinasAplicadas: any[] =
-        item.disciplina_aplicada || item.disciplinasAplicadas || [];
+      const disciplinasAplicadas: DisciplinaAplicada[] =
+        item.disciplinasAplicadas || [];
 
       return (
         <View style={styles.cardAluno}>
@@ -263,13 +282,6 @@ export default function ConsultaScreen() {
               </View>
 
               <View style={styles.provaMetricsRight}>
-                <View style={styles.metricBadge}>
-                  <Text style={styles.metricBadgeText}>
-                    {percentualConclusao}%
-                  </Text>
-                  <Text style={styles.metricBadgeLabel}>Conclusão</Text>
-                </View>
-
                 <View style={styles.bateriaBadge}>
                   <Ionicons
                     name={
@@ -301,29 +313,20 @@ export default function ConsultaScreen() {
               </Text>
 
               {disciplinasAplicadas.length > 0 ? (
-                disciplinasAplicadas.map((disc: any, index: number) => {
-                  const resp = disc.respondidas ?? 0;
-                  const tot = disc.total ?? 0;
-
+                disciplinasAplicadas.map((disc, index) => {
                   return (
                     <View
-                      key={disc.id || disc.id_disciplina || index}
+                      key={`${disc.id_disciplina}-${index}`}
                       style={styles.disciplinaCard}
                     >
                       <Text style={styles.disciplinaNome} numberOfLines={1}>
-                        {disc.nome ||
-                          disc.descricao_disciplina ||
-                          disc.disciplina ||
-                          `Disciplina ${index + 1}`}
+                        {disc.nome}
                       </Text>
+
                       <View style={styles.disciplinaMetricas}>
                         <View style={styles.metricMini}>
-                          <Text style={styles.metricMiniVal}>{resp}</Text>
-                          <Text style={styles.metricMiniLab}>Respondidas</Text>
-                        </View>
-                        <Text style={styles.metricDivider}>/</Text>
-                        <View style={styles.metricMini}>
-                          <Text style={styles.metricMiniVal}>{tot}</Text>
+                          <Text style={styles.metricMiniVal}>{disc.total}</Text>
+
                           <Text style={styles.metricMiniLab}>Total</Text>
                         </View>
                       </View>

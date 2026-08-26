@@ -282,32 +282,6 @@ export async function startServer() {
       }
 
       // =====================================
-      // 🔥 GET /respostas
-      // =====================================
-      if (request.type === "GET" && request.url === "/respostas") {
-        HTTPServer.respond(
-          request.requestId,
-          200,
-          "application/json",
-          JSON.stringify(respostas),
-        );
-        return;
-      }
-
-      // =====================================
-      // 🔥 GET /dispositivos
-      // =====================================
-      if (request.type === "GET" && request.url === "/dispositivos") {
-        HTTPServer.respond(
-          request.requestId,
-          200,
-          "application/json",
-          JSON.stringify(dispositivos),
-        );
-        return;
-      }
-
-      // =====================================
       // 🔥 GET /datahora (Teste de Ping)
       // =====================================
       if (request.type === "GET" && request.url === "/datahora") {
@@ -461,29 +435,93 @@ export async function startServer() {
       // =====================================
       // 🔥 GET /pausado
       // =====================================
-      if (request.type === "GET" && request.url === "/pausado") {
-        const dispositivoId =
-          request.headers["dispositivo-id"] ||
-          request.headers["id-tablet"] ||
-          request.headers["id"];
-        if (!dispositivoId) {
+      if (
+        request.url.includes("/pausado") ||
+        request.url.includes("/status-pausa")
+      ) {
+        try {
+          let dispositivoId: string | null = null;
+
+          // 1. Extrai se vier no caminho da URL (ex: /pausado/123 ou /pausado?dispositivoId=123)
+          const urlParts = request.url.split("?")[0].split("/");
+          if (urlParts.length > 2 && urlParts[2]) {
+            dispositivoId = urlParts[2].trim();
+          }
+
+          // Extrai de Query Param se houver
+          if (!dispositivoId && request.url.includes("?")) {
+            const queryString = request.url.split("?")[1] || "";
+            const urlParams = new URLSearchParams(queryString);
+            dispositivoId =
+              urlParams.get("dispositivoId") || urlParams.get("id");
+          }
+
+          // 2. Extrai se vier via POST/Headers (postData, body ou headers)
+          if (!dispositivoId && request.postData) {
+            try {
+              const body =
+                typeof request.postData === "string"
+                  ? JSON.parse(request.postData)
+                  : request.postData;
+
+              dispositivoId =
+                body.dispositivoId ||
+                body.idTablet ||
+                body.id ||
+                body.dispositivo;
+            } catch (e) {
+              dispositivoId = String(request.postData).trim();
+            }
+          }
+
+          // Fallback para headers
+          if (!dispositivoId && request.headers) {
+            dispositivoId =
+              request.headers["dispositivo-id"] ||
+              request.headers["id-tablet"] ||
+              request.headers["id"];
+          }
+
+          if (
+            !dispositivoId ||
+            dispositivoId === "undefined" ||
+            dispositivoId === "null"
+          ) {
+            HTTPServer.respond(
+              request.requestId,
+              400,
+              "application/json",
+              JSON.stringify({
+                pausado: false,
+                erro: "dispositivoId é obrigatório",
+              }),
+            );
+            return;
+          }
+
+          // 3. Consulta no banco de dados se o dispositivo está pausado
+          const pausado = await buscarPausaDispositivo(dispositivoId);
+
           HTTPServer.respond(
             request.requestId,
-            400,
+            200,
             "application/json",
-            JSON.stringify({ erro: "dispositivoId é obrigatório" }),
+            JSON.stringify({ pausado: Boolean(pausado) }),
+          );
+          return;
+        } catch (error: any) {
+          console.error("❌ Erro na rota /pausado:", error);
+          HTTPServer.respond(
+            request.requestId,
+            500,
+            "application/json",
+            JSON.stringify({
+              pausado: false,
+              erro: "Erro interno ao consultar pausa do dispositivo",
+            }),
           );
           return;
         }
-
-        const pausado = await buscarPausaDispositivo(dispositivoId);
-        HTTPServer.respond(
-          request.requestId,
-          200,
-          "application/json",
-          JSON.stringify({ pausado }),
-        );
-        return;
       }
 
       // =====================================

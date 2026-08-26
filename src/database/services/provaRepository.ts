@@ -414,7 +414,7 @@ export async function buscarProvaLiberadaParaDispositivo(
   }
 }
 
-export async function verificarEAtualizarBateriaDispositivo(
+export async function atualizarBateriaDispositivo(
   dispositivoId: string,
   bateria: number | null,
 ): Promise<void> {
@@ -473,10 +473,9 @@ export async function buscarPausaDispositivo(
 }
 
 export interface DisciplinaAplicada {
-  id_disciplina?: string | number;
+  id_disciplina: string | number;
   nome: string;
   total: number;
-  respondidas?: number;
 }
 
 export async function buscarDisciplinasAplicadas(
@@ -515,12 +514,11 @@ export async function verificarBateriaDispositivo(
   try {
     const registro = await db.getFirstAsync<{ bateria: number | null }>(
       `
-            SELECT 
-                d.id, 
-                d.bateria
-            FROM dispositivos d 
-            JOIN liberacoes_prova lp ON lp.dispositivo_id = d.id 
-            WHERE lp.dispositivo_id = ?
+        SELECT
+          d.bateria 
+        FROM dispositivos d 
+        JOIN liberacoes_prova lp ON lp.dispositivo_id = d.id 
+        WHERE lp.dispositivo_id  = ?
             `,
       [dispositivoId],
     );
@@ -580,4 +578,37 @@ export async function inserirRespostasAluno(
   console.log(
     `✅ ${respostas.length} respostas inseridas/atualizadas no banco local.`,
   );
+}
+
+export async function buscarRespostasAluno(
+  idAluno: number,
+  idAvaliacao: number,
+): Promise<RespostaRecebida[]> {
+  try {
+    const query = `
+    SELECT 
+      aes.id_ava_estudante_saed,
+      arps.id_disciplina,
+      COUNT(arps.is_marcada) AS respondidas
+    FROM aluno_respostas_prova_saed arps
+    JOIN ava_estudante_saed aes ON aes.id_estudante_origem = arps.id_estudante_origem 
+    WHERE aes.id_ava_estudante_saed = ?
+    GROUP BY 
+      aes.id_ava_estudante_saed,
+      arps.id_disciplina;
+    `;
+
+    const respostas = await db.getAllAsync<RespostaRecebida>(query, [
+      idAluno,
+      idAvaliacao,
+    ]);
+
+    return respostas;
+  } catch (error) {
+    console.error(
+      "❌ Erro ao buscar respostas do aluno no banco local:",
+      error,
+    );
+    return [];
+  }
 }

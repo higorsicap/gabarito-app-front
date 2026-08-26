@@ -66,10 +66,16 @@ export const styles = StyleSheet.create({
     backgroundColor: "#16f15f",
     gap: 6,
   },
+  btnEncerrar: {
+    backgroundColor: "#FF3D00",
+  },
   txtBtnIniciar: {
     color: "#000",
     fontWeight: "600",
     fontSize: 13,
+  },
+  txtBtnEncerrar: {
+    color: "#FFF",
   },
   btnGeral: {
     flexDirection: "row",
