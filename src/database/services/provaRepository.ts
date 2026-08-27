@@ -420,13 +420,42 @@ export async function atualizarBateriaDispositivo(
 ): Promise<void> {
   try {
     const query = `
-            UPDATE dispositivos 
-            SET bateria = ? 
-            WHERE id = ?;
-        `;
-    await db.runAsync(query, [bateria, dispositivoId]);
+      UPDATE dispositivos
+      SET bateria = ?
+      WHERE id = ?;
+    `;
+
+    const resultado = await db.runAsync(query, [bateria, dispositivoId]);
+
+    console.log(
+      `🔋 [Bateria] ID=${dispositivoId} | bateria=${bateria} | linhas afetadas=${resultado.changes}`,
+    );
   } catch (error) {
     console.error("❌ Erro ao atualizar bateria do dispositivo:", error);
+
+    throw error;
+  }
+}
+
+export async function atualizarDataConexao(
+  dispositivoId: string,
+  dataHora: string | null,
+): Promise<void> {
+  try {
+    const query = `
+      UPDATE dispositivos
+      SET atualizado_em = ?
+      WHERE id = ?;
+    `;
+
+    const resultado = await db.runAsync(query, [dataHora, dispositivoId]);
+
+    console.log(
+      `🕐 [dataHora] ID=${dispositivoId} | dataHora=${dataHora} | linhas afetadas=${resultado.changes}`,
+    );
+  } catch (error) {
+    console.error("❌ Erro ao atualizar dataHora do dispositivo:", error);
+
     throw error;
   }
 }
@@ -508,24 +537,26 @@ export async function buscarDisciplinasAplicadas(
   }
 }
 
-export async function verificarBateriaDispositivo(
-  dispositivoId: string,
+export async function buscarBateriaDispositivo(
+  idEstudanteOrigem: number,
 ): Promise<number | null> {
   try {
     const registro = await db.getFirstAsync<{ bateria: number | null }>(
       `
-        SELECT
-          d.bateria 
-        FROM dispositivos d 
-        JOIN liberacoes_prova lp ON lp.dispositivo_id = d.id 
-        WHERE lp.dispositivo_id  = ?
-            `,
-      [dispositivoId],
+          SELECT
+            d.bateria
+          FROM dispositivos d
+          JOIN liberacoes_prova lp
+            ON lp.dispositivo_id = d.id
+          WHERE lp.id_estudante_origem = ?
+        `,
+      [idEstudanteOrigem],
     );
 
     return registro?.bateria ?? null;
   } catch (error) {
     console.error("❌ Erro ao buscar bateria do dispositivo:", error);
+
     return null;
   }
 }
@@ -580,35 +611,44 @@ export async function inserirRespostasAluno(
   );
 }
 
+export interface RespostasAlunoDisciplina {
+  id_ava_estudante_saed: number;
+  id_disciplina: number;
+  respondidas: number;
+}
+
 export async function buscarRespostasAluno(
-  idAluno: number,
+  idEstudanteOrigem: number,
   idAvaliacao: number,
-): Promise<RespostaRecebida[]> {
+): Promise<RespostasAlunoDisciplina[]> {
   try {
     const query = `
-    SELECT 
-      aes.id_ava_estudante_saed,
-      arps.id_disciplina,
-      COUNT(arps.is_marcada) AS respondidas
-    FROM aluno_respostas_prova_saed arps
-    JOIN ava_estudante_saed aes ON aes.id_estudante_origem = arps.id_estudante_origem 
-    WHERE aes.id_ava_estudante_saed = ?
-    GROUP BY 
-      aes.id_ava_estudante_saed,
-      arps.id_disciplina;
+      SELECT
+        aes.id_ava_estudante_saed,
+        aes.id_estudante_origem,
+        arps.id_disciplina,
+        COUNT(*) AS respondidas
+      FROM aluno_respostas_prova_saed arps
+      JOIN ava_estudante_saed aes
+        ON aes.id_estudante_origem = arps.id_estudante_origem
+      WHERE aes.id_estudante_origem = ?
+        AND arps.id_avaliacao_saed_mob = ?
+        AND arps.is_marcada IS NOT NULL
+      GROUP BY
+        aes.id_ava_estudante_saed,
+        aes.id_estudante_origem,
+        arps.id_disciplina;
     `;
 
-    const respostas = await db.getAllAsync<RespostaRecebida>(query, [
-      idAluno,
+    const respostas = await db.getAllAsync<RespostasAlunoDisciplina>(query, [
+      idEstudanteOrigem,
       idAvaliacao,
     ]);
 
     return respostas;
   } catch (error) {
-    console.error(
-      "❌ Erro ao buscar respostas do aluno no banco local:",
-      error,
-    );
+    console.error("❌ Erro ao buscar respostas do aluno:", error);
+
     return [];
   }
 }

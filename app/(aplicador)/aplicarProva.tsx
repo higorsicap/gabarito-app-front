@@ -1,13 +1,19 @@
 import BottomNav from "@/src/components/BottomNav";
+
 import {
   DisciplinaAplicada,
   liberarProvaNoBanco,
 } from "@/src/database/services/provaRepository";
+
 import { styles } from "@/src/styles/aplicaProva.styles";
+
 import { StatusAluno, useConsulta } from "@/src/ts/useAplicarProva";
+
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
+
 import { useCallback, useEffect, useMemo } from "react";
+
 import {
   ActivityIndicator,
   FlatList,
@@ -20,23 +26,54 @@ export default function ConsultaScreen() {
   const {
     avaliacoesOpcoes = [],
     servidorAtivo,
+
     escolasOpcoes = [],
     turmasOpcoes = [],
     dispositivosOpcoes = [],
+
     dispositivosAtribuidos = {},
+
     atribuirDispositivo,
     obterStatusAluno,
+
     carregandoOpcoes,
     carregandoTurmas,
     carregandoAlunos,
+
     filtros,
+
     alunos = [],
+
     handlePausar,
     handleIniciarServidor,
     handleEncerrarServidor,
     handleTransferir,
     handleIniciarTodos,
+
+    // ============================================================
+    // 📝 RESPOSTAS
+    // ============================================================
+
+    obterRespostasDisciplina,
+    respostasAlunos = {},
+
+    // ============================================================
+    // 🔋 BATERIA
+    // ============================================================
+
+    bateriasAlunos = {},
+    obterBateriaAluno,
+
+    // ============================================================
+    // 🕐 ÚLTIMA ATUALIZAÇÃO
+    // ============================================================
+
+    ultimaAtualizacao,
   } = useConsulta();
+
+  // ============================================================
+  // AVALIAÇÃO SELECIONADA
+  // ============================================================
 
   const avaliacaoSelecionada = useMemo(() => {
     return avaliacoesOpcoes.find(
@@ -45,7 +82,10 @@ export default function ConsultaScreen() {
     );
   }, [filtros.avaliacao, avaliacoesOpcoes]);
 
-  // Sincroniza ano e horário com base na avaliação selecionada
+  // ============================================================
+  // SINCRONIZA ANO E HORÁRIO
+  // ============================================================
+
   useEffect(() => {
     if (avaliacaoSelecionada) {
       if (avaliacaoSelecionada.id_anoletivo) {
@@ -54,19 +94,26 @@ export default function ConsultaScreen() {
 
       if (avaliacaoSelecionada.data_inicio_avaliacao) {
         const data = new Date(avaliacaoSelecionada.data_inicio_avaliacao);
+
         const horas = String(data.getHours()).padStart(2, "0");
+
         const minutos = String(data.getMinutes()).padStart(2, "0");
+
         filtros.setHorarioInicio?.(`${horas}:${minutos}`);
       }
     } else {
       filtros.setAno?.("");
       filtros.setHorarioInicio?.("");
     }
-  }, [avaliacaoSelecionada]);
+  }, [avaliacaoSelecionada, filtros]);
 
-  // Renderizador visual do badge do Status do aluno
+  // ============================================================
+  // STATUS
+  // ============================================================
+
   const renderBadgeStatus = useCallback((status: StatusAluno) => {
     let badgeStyle = styles.badgePendente;
+
     let textStyle = styles.txtPendente;
 
     switch (status) {
@@ -74,18 +121,22 @@ export default function ConsultaScreen() {
         badgeStyle = styles.badgeConcluido;
         textStyle = styles.txtConcluido;
         break;
+
       case "Iniciado":
         badgeStyle = styles.badgeIniciado;
         textStyle = styles.txtIniciado;
         break;
+
       case "Não iniciado":
         badgeStyle = styles.badgeNaoIniciado;
         textStyle = styles.txtNaoIniciado;
         break;
+
       case "Pausado":
         badgeStyle = styles.badgePausado;
         textStyle = styles.txtPausado;
         break;
+
       case "Pendente":
       default:
         badgeStyle = styles.badgePendente;
@@ -100,7 +151,10 @@ export default function ConsultaScreen() {
     );
   }, []);
 
-  // Header da lista com o formulário de filtros
+  // ============================================================
+  // HEADER
+  // ============================================================
+
   const renderHeader = useCallback(
     () => (
       <View style={styles.cardFiltro}>
@@ -108,12 +162,15 @@ export default function ConsultaScreen() {
 
         {/* AVALIAÇÃO */}
         <Text style={styles.label}>Avaliação</Text>
+
         <View style={styles.select}>
           <Picker
             selectedValue={filtros.avaliacao}
             onValueChange={(itemValue) => filtros.setAvaliacao(itemValue)}
             enabled={!carregandoOpcoes}
-            style={{ color: "#1F2937" }}
+            style={{
+              color: "#1F2937",
+            }}
             dropdownIconColor="#1F2937"
           >
             <Picker.Item
@@ -121,6 +178,7 @@ export default function ConsultaScreen() {
               value=""
               color="#6B7280"
             />
+
             {avaliacoesOpcoes.map((item) => (
               <Picker.Item
                 key={item.id_avaliacao_saed_mob}
@@ -134,12 +192,15 @@ export default function ConsultaScreen() {
 
         {/* ESCOLA */}
         <Text style={styles.label}>Escola</Text>
+
         <View style={styles.select}>
           <Picker
             selectedValue={filtros.escola}
             onValueChange={(itemValue) => filtros.setEscola(itemValue)}
             enabled={!carregandoOpcoes}
-            style={{ color: "#1F2937" }}
+            style={{
+              color: "#1F2937",
+            }}
             dropdownIconColor="#1F2937"
           >
             <Picker.Item
@@ -147,6 +208,7 @@ export default function ConsultaScreen() {
               value=""
               color="#6B7280"
             />
+
             {escolasOpcoes.map((item) => (
               <Picker.Item
                 key={item.id_escola}
@@ -160,6 +222,7 @@ export default function ConsultaScreen() {
 
         {/* TURMA */}
         <Text style={styles.label}>Turma</Text>
+
         <View style={styles.select}>
           <Picker
             selectedValue={filtros.turma}
@@ -167,7 +230,9 @@ export default function ConsultaScreen() {
             enabled={
               !carregandoOpcoes && !carregandoTurmas && Boolean(filtros.escola)
             }
-            style={{ color: "#1F2937" }}
+            style={{
+              color: "#1F2937",
+            }}
             dropdownIconColor="#1F2937"
           >
             <Picker.Item
@@ -181,6 +246,7 @@ export default function ConsultaScreen() {
               value=""
               color="#6B7280"
             />
+
             {turmasOpcoes.map((item) => (
               <Picker.Item
                 key={item.id_turma}
@@ -192,7 +258,7 @@ export default function ConsultaScreen() {
           </Picker>
         </View>
 
-        {/* BOTÕES DE AÇÃO DOS FILTROS */}
+        {/* BOTÕES */}
         <View style={styles.botoes}>
           <TouchableOpacity
             style={[styles.btnIniciar, servidorAtivo && styles.btnEncerrar]}
@@ -206,6 +272,7 @@ export default function ConsultaScreen() {
               size={18}
               color={servidorAtivo ? "#FFF" : "#000"}
             />
+
             <Text
               style={[
                 styles.txtBtnIniciar,
@@ -222,6 +289,7 @@ export default function ConsultaScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="options-outline" size={18} color="#FFF" />
+
             <Text style={styles.txtBtnGeral}>Iniciar Avaliação</Text>
           </TouchableOpacity>
         </View>
@@ -241,31 +309,70 @@ export default function ConsultaScreen() {
     ],
   );
 
-  // Item individual da lista de alunos
+  // ============================================================
+  // ITEM DO ALUNO
+  // ============================================================
+
   const renderItem = useCallback(
     ({ item }: { item: any }) => {
       const dispositivoSelecionado = dispositivosAtribuidos[item.id] || "";
+
       const statusAtual = obterStatusAluno
         ? obterStatusAluno(item.id, item.status)
         : item.status;
 
-      const percentualBateria = item.percentualBateria ?? 0;
+      // ========================================================
+      // 🔋 BATERIA
+      // ========================================================
+
+      const percentualBateria = obterBateriaAluno
+        ? obterBateriaAluno(item.id)
+        : 0;
+
       const disciplinasAplicadas: DisciplinaAplicada[] =
         item.disciplinasAplicadas || [];
 
       return (
         <View style={styles.cardAluno}>
-          {/* CABEÇALHO DO CARD: Nome e Status */}
+          {/* CABEÇALHO */}
           <View style={styles.cardHeader}>
             <Text style={styles.nomeAluno} numberOfLines={2}>
               {item.nome}
             </Text>
+
+            {/* 🕐 ÚLTIMA ATUALIZAÇÃO */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Ionicons name="sync-outline" size={12} color="#6B7280" />
+
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: "#6B7280",
+                }}
+              >
+                Atualizado em:{" "}
+                {ultimaAtualizacao
+                  ? ultimaAtualizacao.toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })
+                  : "--:--:--"}
+              </Text>
+            </View>
+
             {renderBadgeStatus(statusAtual)}
           </View>
 
-          {/* CORPO DO CARD */}
+          {/* CORPO */}
           <View style={styles.cardBody}>
-            {/* LINHA SUPERIOR: Nome da Prova + % Conclusão + % Bateria */}
+            {/* PROVA + BATERIA */}
             <View style={styles.provaHeaderRow}>
               <View style={styles.provaTitleContainer}>
                 <Ionicons
@@ -273,7 +380,9 @@ export default function ConsultaScreen() {
                   size={16}
                   color="#6B7280"
                 />
+
                 <Text style={styles.infoLabel}>Prova:</Text>
+
                 <Text style={styles.infoValue} numberOfLines={1}>
                   {item.provaNome ||
                     avaliacaoSelecionada?.descricao_avaliacao ||
@@ -282,6 +391,7 @@ export default function ConsultaScreen() {
               </View>
 
               <View style={styles.provaMetricsRight}>
+                {/* 🔋 BATERIA */}
                 <View style={styles.bateriaBadge}>
                   <Ionicons
                     name={
@@ -292,6 +402,7 @@ export default function ConsultaScreen() {
                     size={14}
                     color={percentualBateria <= 20 ? "#EF4444" : "#10B981"}
                   />
+
                   <Text
                     style={[
                       styles.bateriaText,
@@ -306,7 +417,7 @@ export default function ConsultaScreen() {
               </View>
             </View>
 
-            {/* LISTA DE DISCIPLINAS APLICADAS */}
+            {/* DISCIPLINAS */}
             <View style={styles.disciplinasSection}>
               <Text style={styles.disciplinasSectionTitle}>
                 Disciplinas Aplicadas
@@ -314,6 +425,11 @@ export default function ConsultaScreen() {
 
               {disciplinasAplicadas.length > 0 ? (
                 disciplinasAplicadas.map((disc, index) => {
+                  const respondidas = obterRespostasDisciplina(
+                    item.id,
+                    disc.id_disciplina,
+                  );
+
                   return (
                     <View
                       key={`${disc.id_disciplina}-${index}`}
@@ -325,9 +441,11 @@ export default function ConsultaScreen() {
 
                       <View style={styles.disciplinaMetricas}>
                         <View style={styles.metricMini}>
-                          <Text style={styles.metricMiniVal}>{disc.total}</Text>
+                          <Text style={styles.metricMiniVal}>
+                            {respondidas}/{disc.total}
+                          </Text>
 
-                          <Text style={styles.metricMiniLab}>Total</Text>
+                          <Text style={styles.metricMiniLab}>Respondidas</Text>
                         </View>
                       </View>
                     </View>
@@ -341,24 +459,22 @@ export default function ConsultaScreen() {
             </View>
           </View>
 
-          {/* BARRA DE AÇÕES INFERIOR */}
+          {/* RODAPÉ */}
           <View style={styles.cardFooter}>
-            {/* Seletor de Dispositivo */}
+            {/* DISPOSITIVO */}
             <View style={styles.selectDispositivo}>
               <Picker
                 selectedValue={dispositivoSelecionado}
                 onValueChange={async (val) => {
-                  // Atualiza a atribuição visual no estado local
                   atribuirDispositivo?.(item.id, val);
 
-                  // Grava no banco SQLite se houver um dispositivo e uma avaliação selecionada
                   if (val && avaliacaoSelecionada?.id_avaliacao_saed_mob) {
                     try {
                       await liberarProvaNoBanco(
                         val,
                         avaliacaoSelecionada.id_avaliacao_saed_mob,
                         {
-                          id: item.id, // Passa o id_estudante_origem
+                          id: item.id,
                           nome: item.nome,
                         },
                       );
@@ -374,21 +490,26 @@ export default function ConsultaScreen() {
                   label="Selecione o dispositivo"
                   value=""
                   color="#9CA3AF"
-                  style={{ fontSize: 12 }}
+                  style={{
+                    fontSize: 12,
+                  }}
                 />
+
                 {dispositivosOpcoes.map((d) => (
                   <Picker.Item
                     key={d.id}
                     label={d.nome}
                     value={String(d.id)}
                     color="#1F2937"
-                    style={{ fontSize: 12 }}
+                    style={{
+                      fontSize: 12,
+                    }}
                   />
                 ))}
               </Picker>
             </View>
 
-            {/* Botões de Ação */}
+            {/* BOTÕES */}
             <View style={styles.footerBotoes}>
               <TouchableOpacity
                 style={styles.btnActionPausar}
@@ -396,6 +517,7 @@ export default function ConsultaScreen() {
                 activeOpacity={0.7}
               >
                 <Ionicons name="pause" size={14} color="#DC2626" />
+
                 <Text style={styles.txtBtnPausar}>Pausar</Text>
               </TouchableOpacity>
 
@@ -405,6 +527,7 @@ export default function ConsultaScreen() {
                 activeOpacity={0.7}
               >
                 <Ionicons name="swap-horizontal" size={14} color="#2563EB" />
+
                 <Text style={styles.txtBtnTransferir}>Transferir</Text>
               </TouchableOpacity>
             </View>
@@ -417,12 +540,19 @@ export default function ConsultaScreen() {
       dispositivosAtribuidos,
       atribuirDispositivo,
       obterStatusAluno,
+      obterRespostasDisciplina,
+      obterBateriaAluno,
       handlePausar,
       handleTransferir,
       avaliacaoSelecionada,
       renderBadgeStatus,
+      ultimaAtualizacao,
     ],
   );
+
+  // ============================================================
+  // TELA
+  // ============================================================
 
   return (
     <View style={styles.container}>
@@ -430,6 +560,13 @@ export default function ConsultaScreen() {
 
       <FlatList
         data={alunos}
+        // ✅ Atualiza os cards quando qualquer
+        // um desses estados mudar
+        extraData={{
+          respostasAlunos,
+          bateriasAlunos,
+          ultimaAtualizacao,
+        }}
         keyExtractor={(item) => String(item.id)}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.scrollContainer}
@@ -438,6 +575,7 @@ export default function ConsultaScreen() {
             {carregandoAlunos ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#4dabf7" />
+
                 <Text style={styles.loadingText}>Buscando alunos...</Text>
               </View>
             ) : (

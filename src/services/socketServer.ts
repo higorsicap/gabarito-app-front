@@ -4,6 +4,8 @@ import HTTPServer from "react-native-http-bridge-refurbished";
 import { NetworkInfo } from "react-native-network-info";
 
 import {
+  atualizarBateriaDispositivo,
+  atualizarDataConexao,
   buscarPausaDispositivo,
   buscarProvaLiberadaParaDispositivo,
   inserirRespostasAluno,
@@ -238,28 +240,112 @@ export async function startServer() {
         try {
           const body = request.postData ? JSON.parse(request.postData) : {};
 
-          // Extrai o array do payload { id_avaliacao: 1, respostas: [...] }
+          // ==========================================================
+          // 📋 EXTRAI RESPOSTAS
+          // ==========================================================
+
           const listaRespostas: RespostaRecebida[] = Array.isArray(body)
             ? body
-            : body.respostas || [];
+            : Array.isArray(body.respostas)
+              ? body.respostas
+              : [];
 
-          // 1. Grava no banco local
-          await inserirRespostasAluno(listaRespostas);
+          // ==========================================================
+          // 📱 EXTRAI DADOS DO DISPOSITIVO
+          // ==========================================================
 
-          // 2. Processa payload complementar (se necessário)
+          const dispositivoId = !Array.isArray(body)
+            ? body.dispositivoId
+            : null;
+
+          const nivelBateria = !Array.isArray(body) ? body.nivelBateria : null;
+
+          const dataHora = !Array.isArray(body) ? body.dataHora : null;
+
+          console.log("📱 [Servidor] Dispositivo:", dispositivoId);
+
+          console.log("🔋 [Servidor] Nível da bateria:", nivelBateria);
+
+          console.log("🕐 [Servidor] Data/hora da comunicação:", dataHora);
+
+          // ==========================================================
+          // 🔋 ATUALIZA BATERIA DO DISPOSITIVO
+          // ==========================================================
+
+          if (
+            dispositivoId &&
+            nivelBateria !== undefined &&
+            nivelBateria !== null
+          ) {
+            await atualizarBateriaDispositivo(
+              String(dispositivoId),
+              Number(nivelBateria),
+            );
+
+            console.log(
+              `✅ [Bateria] Dispositivo ${dispositivoId} atualizado para ${nivelBateria}%`,
+            );
+          } else {
+            console.warn(
+              "⚠️ [Bateria] Dispositivo ou nível de bateria não informado.",
+            );
+          }
+
+          // ==========================================================
+          // 🕐 ATUALIZA HORA DA ÚLTIMA COMUNICAÇÃO
+          // ==========================================================
+
+          if (dispositivoId && dataHora !== undefined && dataHora !== null) {
+            await atualizarDataConexao(String(dispositivoId), String(dataHora));
+
+            console.log(
+              `✅ [dataHora] Dispositivo ${dispositivoId} atualizado para ${dataHora}`,
+            );
+          } else {
+            console.warn(
+              "⚠️ [dataHora] Dispositivo ou data/hora não informado.",
+            );
+          }
+
+          // ==========================================================
+          // 💾 GRAVA RESPOSTAS
+          // ==========================================================
+
+          if (listaRespostas.length > 0) {
+            await inserirRespostasAluno(listaRespostas);
+
+            console.log(
+              `✅ [Respostas] ${listaRespostas.length} respostas processadas.`,
+            );
+          } else {
+            console.log(
+              "ℹ️ [Respostas] Nenhuma resposta recebida neste payload.",
+            );
+          }
+
+          // ==========================================================
+          // 🔄 PROCESSA PAYLOAD COMPLEMENTAR
+          // ==========================================================
+
           const respostaPayload =
             typeof processarPayload === "function"
               ? await processarPayload(body)
               : null;
 
-          // 3. Resposta HTTP 200
+          // ==========================================================
+          // ✅ RESPONSE
+          // ==========================================================
+
           HTTPServer.respond(
             request.requestId,
             200,
             "application/json",
             JSON.stringify({
               sucesso: true,
-              mensagem: `${listaRespostas.length} respostas gravadas com sucesso!`,
+              mensagem: `${listaRespostas.length} respostas processadas com sucesso!`,
+              bateria: nivelBateria,
+              dataHora,
+              dispositivoId,
               dados: respostaPayload,
             }),
           );
@@ -272,7 +358,7 @@ export async function startServer() {
             "application/json",
             JSON.stringify({
               sucesso: false,
-              mensagem: "Erro interno ao salvar respostas no banco local.",
+              mensagem: "Erro interno ao processar o payload.",
               erro: error.message,
             }),
           );
@@ -280,7 +366,6 @@ export async function startServer() {
 
         return;
       }
-
       // =====================================
       // 🔥 GET /datahora (Teste de Ping)
       // =====================================

@@ -50,20 +50,29 @@ export function iniciarDb() {
     `);
 
   db.execAsync(`
-        CREATE TABLE
-            IF NOT EXISTS 'aluno_respostas_prova_saed' (
-                id_aluno_respostas_prova_saed INTEGER PRIMARY KEY AUTOINCREMENT,
-                id_estudante_origem INTEGER,
-                id_avaliacao_saed_mob INTEGER NOT NULL,
-                id_disciplina INTEGER,
-                id_questao INTEGER,
-                is_marcada INTEGER,
-                is_correta INTEGER,
-                FOREIGN KEY (id_avaliacao_saed_mob) REFERENCES avaliacao_saed_mob (id_avaliacao_saed_mob)
-                FOREIGN KEY (id_estudante_origem) REFERENCES ava_estudante_saed(id_estudante_origem)
+    CREATE TABLE IF NOT EXISTS aluno_respostas_prova_saed (
+        id_aluno_respostas_prova_saed INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_estudante_origem INTEGER,
+        id_avaliacao_saed_mob INTEGER NOT NULL,
+        id_disciplina INTEGER,
+        id_questao INTEGER,
+        is_marcada INTEGER,
+        is_correta INTEGER,
 
-            );
-    `);
+        FOREIGN KEY (id_avaliacao_saed_mob)
+            REFERENCES avaliacao_saed_mob (id_avaliacao_saed_mob),
+
+        FOREIGN KEY (id_estudante_origem)
+            REFERENCES ava_estudante_saed (id_estudante_origem),
+
+        UNIQUE (
+            id_estudante_origem,
+            id_avaliacao_saed_mob,
+            id_disciplina,
+            id_questao
+        )
+    );
+`);
 
   db.execAsync(`
         CREATE TABLE
@@ -127,6 +136,7 @@ export function iniciarDb() {
                 versao TEXT,
                 ip TEXT,
                 bateria INTEGER,
+                atualizado_em TEXT,
                 status TEXT DEFAULT 'CONECTADO',
                 conectado_em DATETIME DEFAULT CURRENT_TIMESTAMP
         );    

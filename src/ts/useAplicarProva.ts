@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
 import { Alert } from "react-native";
 
 import {
@@ -7,12 +8,13 @@ import {
   EscolaSelect,
   TurmaSelect,
   atualizarPausaDispositivo,
+  buscarBateriaDispositivo,
   buscarDisciplinasAplicadas,
+  buscarRespostasAluno,
   listarAlunoEscolaTurma,
   preencherSelectAvaliacao,
   preencherSelectEscola,
   preencherSelectTurma,
-  verificarBateriaDispositivo,
 } from "@/src/database/services/provaRepository";
 
 import {
@@ -44,47 +46,90 @@ export type StatusAluno =
   | "Concluído";
 
 export function useConsulta() {
-  // 1. Listas para os Selects
+  // ============================================================
+  // LISTAS
+  // ============================================================
+
   const [avaliacoesOpcoes, setAvaliacoesOpcoes] = useState<AvaliacaoSelect[]>(
     [],
   );
+
   const [servidorAtivo, setServidorAtivo] = useState(false);
+
   const [escolasOpcoes, setEscolasOpcoes] = useState<EscolaSelect[]>([]);
+
   const [turmasOpcoes, setTurmasOpcoes] = useState<TurmaSelect[]>([]);
 
-  // Lista de Dispositivos recebidos via socket/polling
   const [dispositivosOpcoes, setDispositivosOpcoes] = useState<
     DispositivoOption[]
   >([]);
 
-  // Mapeamento individual de Dispositivo por Aluno: { [idAluno]: idDispositivo }
   const [dispositivosAtribuidos, setDispositivosAtribuidos] = useState<
     Record<number, string>
   >({});
 
-  // Mapeamento individual do Status de Ação do Aluno: { [idAluno]: StatusAluno }
   const [statusAlunos, setStatusAlunos] = useState<Record<number, StatusAluno>>(
     {},
   );
 
-  // Estados de Carregamento
-  const [carregandoOpcoes, setCarregandoOpcoes] = useState<boolean>(true);
-  const [carregandoTurmas, setCarregandoTurmas] = useState<boolean>(false);
-  const [carregandoAlunos, setCarregandoAlunos] = useState<boolean>(false);
+  // ============================================================
+  // 📝 RESPOSTAS POR ALUNO E DISCIPLINA
+  // ============================================================
 
-  // 2. Filtros
-  const [avaliacao, setAvaliacao] = useState<string>("");
-  const [escola, setEscola] = useState<string>("");
-  const [turma, setTurma] = useState<string>("");
-  const [dispositivo, setDispositivo] = useState<string>("");
-  const [ano, setAno] = useState<string>("");
-  const [horarioInicio, setHorarioInicio] = useState<string>("");
+  const [respostasAlunos, setRespostasAlunos] = useState<
+    Record<number, Record<string, number>>
+  >({});
 
-  // 3. Resultado da Tabela e Ações
+  // ============================================================
+  // 🔋 BATERIA POR ALUNO
+  // ============================================================
+
+  const [bateriasAlunos, setBateriasAlunos] = useState<
+    Record<number, number | null>
+  >({});
+
+  // ============================================================
+  // 🕐 ÚLTIMA ATUALIZAÇÃO
+  //
+  // Fica somente em memória.
+  // Não é salvo no banco.
+  // ============================================================
+
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
+
+  // ============================================================
+  // CARREGAMENTO
+  // ============================================================
+
+  const [carregandoOpcoes, setCarregandoOpcoes] = useState(true);
+
+  const [carregandoTurmas, setCarregandoTurmas] = useState(false);
+
+  const [carregandoAlunos, setCarregandoAlunos] = useState(false);
+
+  // ============================================================
+  // FILTROS
+  // ============================================================
+
+  const [avaliacao, setAvaliacao] = useState("");
+  const [escola, setEscola] = useState("");
+  const [turma, setTurma] = useState("");
+  const [dispositivo, setDispositivo] = useState("");
+  const [ano, setAno] = useState("");
+  const [horarioInicio, setHorarioInicio] = useState("");
+
+  // ============================================================
+  // ALUNOS
+  // ============================================================
+
   const [alunos, setAlunos] = useState<AlunoSelect[]>([]);
+
   const [menuAberto, setMenuAberto] = useState<number | null>(null);
 
-  // 🔄 EFFECT PARA OUVIR DISPOSITIVOS E DADOS EM TEMPO REAL VIA SOCKET
+  // ============================================================
+  // 🔄 DISPOSITIVOS VIA SOCKET
+  // ============================================================
+
   useEffect(() => {
     let isMounted = true;
 
@@ -92,19 +137,19 @@ export function useConsulta() {
       listaServer: DispositivoConectado[],
     ) => {
       if (!isMounted) return;
+
       const opcoesMapeadas: DispositivoOption[] = (listaServer || []).map(
         (d) => ({
           id: d.id,
           nome: `${d.nome || "Tablet"} (${d.ip || "Sem IP"})`,
         }),
       );
+
       setDispositivosOpcoes(opcoesMapeadas);
     };
 
-    // Carrega estado inicial de dispositivos
     atualizarListaDispositivos(getDispositivos());
 
-    // Subscrição em tempo real
     const unsubscribe = subscribe(
       (_respostas: unknown, novosDispositivos: DispositivoConectado[]) => {
         atualizarListaDispositivos(novosDispositivos);
@@ -117,37 +162,49 @@ export function useConsulta() {
     };
   }, []);
 
-  // 🏛️ Carrega Avaliações e Escolas na inicialização
+  // ============================================================
+  // 🏛️ DADOS INICIAIS
+  // ============================================================
+
   useEffect(() => {
     let isMounted = true;
 
     async function carregarDadosIniciais() {
       try {
         setCarregandoOpcoes(true);
+
         const [dadosAvaliacoes, dadosEscolas] = await Promise.all([
           preencherSelectAvaliacao(),
           preencherSelectEscola(),
         ]);
 
         if (!isMounted) return;
+
         setAvaliacoesOpcoes(
           Array.isArray(dadosAvaliacoes) ? dadosAvaliacoes : [],
         );
+
         setEscolasOpcoes(Array.isArray(dadosEscolas) ? dadosEscolas : []);
       } catch (error) {
         console.error("Erro ao carregar dados iniciais:", error);
       } finally {
-        if (isMounted) setCarregandoOpcoes(false);
+        if (isMounted) {
+          setCarregandoOpcoes(false);
+        }
       }
     }
 
     carregarDadosIniciais();
+
     return () => {
       isMounted = false;
     };
   }, []);
 
-  // 🏫 Carrega Turmas ao selecionar/alterar a Escola
+  // ============================================================
+  // 🏫 TURMAS POR ESCOLA
+  // ============================================================
+
   useEffect(() => {
     let isMounted = true;
 
@@ -156,6 +213,9 @@ export function useConsulta() {
       setAlunos([]);
       setDispositivosAtribuidos({});
       setStatusAlunos({});
+      setRespostasAlunos({});
+      setBateriasAlunos({});
+      setUltimaAtualizacao(null);
 
       if (!escola) {
         setTurmasOpcoes([]);
@@ -164,25 +224,36 @@ export function useConsulta() {
 
       try {
         setCarregandoTurmas(true);
+
         const dadosTurmas = await preencherSelectTurma(escola);
+
         if (!isMounted) return;
+
         setTurmasOpcoes(Array.isArray(dadosTurmas) ? dadosTurmas : []);
       } catch (error) {
         console.error("Erro ao buscar turmas:", error);
-        if (isMounted) setTurmasOpcoes([]);
+
+        if (isMounted) {
+          setTurmasOpcoes([]);
+        }
       } finally {
-        if (isMounted) setCarregandoTurmas(false);
+        if (isMounted) {
+          setCarregandoTurmas(false);
+        }
       }
     }
 
     carregarTurmasPorEscola();
+
     return () => {
       isMounted = false;
     };
   }, [escola]);
 
-  // 👨‍🎓 Busca Alunos AUTOMATICAMENTE ao selecionar a Turma
-  // 📚 Junto com os alunos, busca as disciplinas aplicadas da avaliação selecionada
+  // ============================================================
+  // 👨‍🎓 BUSCA ALUNOS + DISCIPLINAS
+  // ============================================================
+
   useEffect(() => {
     let isMounted = true;
 
@@ -191,21 +262,21 @@ export function useConsulta() {
         setAlunos([]);
         setDispositivosAtribuidos({});
         setStatusAlunos({});
+        setRespostasAlunos({});
+        setBateriasAlunos({});
+        setUltimaAtualizacao(null);
         return;
       }
 
       try {
         setCarregandoAlunos(true);
 
-        // Busca os alunos da escola/turma
         const dadosAlunos = await listarAlunoEscolaTurma(escola, turma);
 
         if (!isMounted) return;
 
         const listaAlunos = Array.isArray(dadosAlunos) ? dadosAlunos : [];
 
-        // Se houver uma avaliação selecionada,
-        // busca as disciplinas aplicadas dessa avaliação.
         let disciplinasAplicadas: DisciplinaAplicada[] = [];
 
         if (avaliacao) {
@@ -216,7 +287,6 @@ export function useConsulta() {
 
         if (!isMounted) return;
 
-        // Adiciona as disciplinas em cada aluno
         const alunosComDisciplinas = listaAlunos.map((aluno) => ({
           ...aluno,
           disciplinasAplicadas,
@@ -228,6 +298,9 @@ export function useConsulta() {
 
         if (isMounted) {
           setAlunos([]);
+          setRespostasAlunos({});
+          setBateriasAlunos({});
+          setUltimaAtualizacao(null);
         }
       } finally {
         if (isMounted) {
@@ -243,7 +316,190 @@ export function useConsulta() {
     };
   }, [turma, escola, avaliacao]);
 
-  // 📱 Atribuir dispositivo a um aluno
+  // ============================================================
+  // 📝 ATUALIZAR RESPOSTAS
+  // ============================================================
+
+  const atualizarRespostasAlunos = useCallback(async () => {
+    if (!avaliacao || alunos.length === 0) {
+      setRespostasAlunos({});
+      return;
+    }
+
+    try {
+      const novoMapa: Record<number, Record<string, number>> = {};
+
+      for (const aluno of alunos) {
+        try {
+          const respostas = await buscarRespostasAluno(
+            aluno.id,
+            Number(avaliacao),
+          );
+
+          const mapaDisciplinas: Record<string, number> = {};
+
+          for (const resposta of respostas) {
+            if (
+              resposta.id_disciplina === null ||
+              resposta.id_disciplina === undefined
+            ) {
+              continue;
+            }
+
+            mapaDisciplinas[String(resposta.id_disciplina)] = Number(
+              resposta.respondidas ?? 0,
+            );
+          }
+
+          novoMapa[aluno.id] = mapaDisciplinas;
+        } catch (error) {
+          console.error(
+            `❌ Erro ao buscar respostas do aluno ${aluno.id}:`,
+            error,
+          );
+
+          novoMapa[aluno.id] = {};
+        }
+      }
+
+      setRespostasAlunos(novoMapa);
+
+      console.log(
+        "📊 [Respostas] Novo mapa:",
+        JSON.stringify(novoMapa, null, 2),
+      );
+    } catch (error) {
+      console.error("❌ Erro ao atualizar respostas dos alunos:", error);
+    }
+  }, [avaliacao, alunos]);
+
+  // ============================================================
+  // 🔋 ATUALIZAR BATERIAS
+  // ============================================================
+
+  const atualizarBateriasAlunos = useCallback(async () => {
+    if (alunos.length === 0) {
+      return;
+    }
+
+    try {
+      const novoMapa: Record<number, number | null> = {};
+
+      for (const aluno of alunos) {
+        try {
+          // aluno.id = id_estudante_origem
+          const bateria = await buscarBateriaDispositivo(aluno.id);
+
+          novoMapa[aluno.id] =
+            bateria !== null && bateria !== undefined ? Number(bateria) : null;
+
+          console.log(`🔋 [Bateria] Aluno=${aluno.id} | Bateria=${bateria}`);
+        } catch (error) {
+          console.error(
+            `❌ [Bateria] Erro ao buscar bateria do aluno ${aluno.id}:`,
+            error,
+          );
+
+          novoMapa[aluno.id] = null;
+        }
+      }
+
+      setBateriasAlunos(novoMapa);
+
+      console.log("🔋 [Bateria] Novo mapa:", JSON.stringify(novoMapa, null, 2));
+    } catch (error) {
+      console.error("❌ [Bateria] Erro ao atualizar baterias:", error);
+    }
+  }, [alunos]);
+
+  // ============================================================
+  // 🔄 ATUALIZAÇÃO AUTOMÁTICA
+  //
+  // Faz:
+  // 1. Busca respostas
+  // 2. Busca baterias
+  // 3. Marca o horário da atualização
+  // 4. Aguarda 3 segundos
+  // 5. Repete
+  // ============================================================
+
+  useEffect(() => {
+    if (!avaliacao || alunos.length === 0) {
+      return;
+    }
+
+    let ativo = true;
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const atualizar = async () => {
+      if (!ativo) return;
+
+      console.log("🔄 [Painel] Atualizando respostas e baterias...");
+
+      await atualizarRespostasAlunos();
+
+      if (!ativo) return;
+
+      await atualizarBateriasAlunos();
+
+      if (!ativo) return;
+
+      const agora = new Date();
+
+      setUltimaAtualizacao(agora);
+
+      console.log(
+        "🕐 [Painel] Última atualização:",
+        agora.toLocaleTimeString(),
+      );
+
+      if (!ativo) return;
+
+      timeoutId = setTimeout(atualizar, 3000);
+    };
+
+    atualizar();
+
+    return () => {
+      ativo = false;
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [avaliacao, alunos, atualizarRespostasAlunos, atualizarBateriasAlunos]);
+
+  // ============================================================
+  // 📝 OBTER RESPOSTAS DE UMA DISCIPLINA
+  // ============================================================
+
+  const obterRespostasDisciplina = useCallback(
+    (alunoId: number, idDisciplina?: string | number): number => {
+      if (idDisciplina === undefined || idDisciplina === null) {
+        return 0;
+      }
+
+      return respostasAlunos[alunoId]?.[String(idDisciplina)] ?? 0;
+    },
+    [respostasAlunos],
+  );
+
+  // ============================================================
+  // 🔋 OBTER BATERIA DO ALUNO
+  // ============================================================
+
+  const obterBateriaAluno = useCallback(
+    (alunoId: number): number => {
+      return bateriasAlunos[alunoId] ?? 0;
+    },
+    [bateriasAlunos],
+  );
+
+  // ============================================================
+  // 📱 ATRIBUIR DISPOSITIVO
+  // ============================================================
+
   function atribuirDispositivo(alunoId: number, dispositivoId: string) {
     setDispositivosAtribuidos((prev) => ({
       ...prev,
@@ -251,7 +507,10 @@ export function useConsulta() {
     }));
   }
 
-  // 📊 Status dinâmico do aluno
+  // ============================================================
+  // 📊 STATUS
+  // ============================================================
+
   function obterStatusAluno(
     alunoId: number,
     statusOriginal?: string,
@@ -265,8 +524,13 @@ export function useConsulta() {
     }
 
     const temDispositivo = Boolean(dispositivosAtribuidos[alunoId]);
+
     return temDispositivo ? "Não iniciado" : "Pendente";
   }
+
+  // ============================================================
+  // 🧹 LIMPAR FILTROS
+  // ============================================================
 
   function limparFiltros() {
     setAvaliacao("");
@@ -275,38 +539,62 @@ export function useConsulta() {
     setDispositivo("");
     setAno("");
     setHorarioInicio("");
+
     setAlunos([]);
     setDispositivosAtribuidos({});
     setStatusAlunos({});
+    setRespostasAlunos({});
+    setBateriasAlunos({});
+    setUltimaAtualizacao(null);
   }
+
+  // ============================================================
+  // 📂 MENU
+  // ============================================================
 
   function toggleMenu(id: number) {
     setMenuAberto((prev) => (prev === id ? null : id));
   }
 
-  // 🔋 Consultar bateria de um dispositivo
+  // ============================================================
+  // 🔋 CONSULTAR BATERIA DIRETAMENTE
+  // ============================================================
+
   async function obterBateriaDispositivo(
-    dispositivoId: string,
+    idEstudanteOrigem: number,
   ): Promise<number | null> {
-    if (!dispositivoId) return null;
-    return await verificarBateriaDispositivo(dispositivoId);
+    if (!idEstudanteOrigem) {
+      return null;
+    }
+
+    return await buscarBateriaDispositivo(idEstudanteOrigem);
   }
 
-  // 📚 Consultar disciplinas aplicadas de uma avaliação/dispositivo
+  // ============================================================
+  // 📚 DISCIPLINAS
+  // ============================================================
+
   async function obterDisciplinaAplicada(
     avaliacaoOuDispositivoId: string,
   ): Promise<DisciplinaAplicada[]> {
-    if (!avaliacaoOuDispositivoId) return [];
+    if (!avaliacaoOuDispositivoId) {
+      return [];
+    }
+
     return await buscarDisciplinasAplicadas(avaliacaoOuDispositivoId);
   }
 
-  // 🚀 Iniciar avaliação para o aluno
+  // ============================================================
+  // 🚀 INICIAR
+  // ============================================================
+
   async function handleIniciar(idAluno: number) {
     if (!avaliacao) {
       Alert.alert(
         "Aviso",
         "Por favor, selecione uma Avaliação no filtro antes de iniciar.",
       );
+
       return;
     }
 
@@ -317,6 +605,7 @@ export function useConsulta() {
         "Aviso",
         "Selecione um dispositivo para este aluno antes de iniciar.",
       );
+
       return;
     }
 
@@ -330,34 +619,45 @@ export function useConsulta() {
         nome: aluno?.nome || "Aluno Sem Nome",
       });
 
-      setStatusAlunos((prev) => ({ ...prev, [idAluno]: "Iniciado" }));
+      setStatusAlunos((prev) => ({
+        ...prev,
+        [idAluno]: "Iniciado",
+      }));
+
       console.log(
         `✅ Prova liberada para ${aluno?.nome} no Tablet (${dispositivoId})`,
       );
     } catch (error: unknown) {
       console.error("❌ Erro ao liberar prova no banco:", error);
+
       const mensagem =
         error instanceof Error
           ? error.message
           : "Não foi possível liberar a prova.";
+
       Alert.alert("Erro", mensagem);
     }
   }
 
-  // 🚀 Iniciar avaliação para TODOS os alunos válidos da lista
+  // ============================================================
+  // 🚀 INICIAR TODOS
+  // ============================================================
+
   async function handleIniciarTodos() {
     if (!avaliacao) {
       Alert.alert(
         "Aviso",
         "Por favor, selecione uma Avaliação no filtro antes de iniciar para todos.",
       );
+
       return;
     }
 
-    // Filtra apenas alunos que têm um dispositivo associado e que ainda não concluíram
     const alunosParaIniciar = alunos.filter((aluno) => {
       const dispId = dispositivosAtribuidos[aluno.id];
+
       const status = obterStatusAluno(aluno.id, aluno.status);
+
       return dispId && status !== "Concluído" && status !== "Iniciado";
     });
 
@@ -366,6 +666,7 @@ export function useConsulta() {
         "Aviso",
         "Nenhum aluno elegível encontrado. Certifique-se de vincular os dispositivos aos alunos antes de iniciar.",
       );
+
       return;
     }
 
@@ -404,24 +705,32 @@ export function useConsulta() {
             });
 
             await Promise.allSettled(promessas);
+
             Alert.alert("Sucesso", "Processo de liberação em massa concluído!");
           },
         },
       ],
-      { cancelable: true },
+      {
+        cancelable: true,
+      },
     );
   }
 
-  // ⏸️ Pausar ou Retomar a prova do aluno
+  // ============================================================
+  // ⏸️ PAUSAR
+  // ============================================================
+
   async function handlePausar(idAluno: number) {
     const dispositivoId = dispositivosAtribuidos[idAluno];
 
     if (!dispositivoId) {
       Alert.alert("Aviso", "Nenhum dispositivo está vinculado a este aluno.");
+
       return;
     }
 
     const estaPausadoAtual = statusAlunos[idAluno] === "Pausado";
+
     const novoStatusPausa = !estaPausadoAtual;
 
     try {
@@ -439,43 +748,69 @@ export function useConsulta() {
       );
     } catch (error: unknown) {
       console.error(`❌ Erro ao atualizar pausa do aluno ${idAluno}:`, error);
+
       const mensagem =
         error instanceof Error
           ? error.message
           : "Erro ao tentar pausar/retomar a prova.";
+
       Alert.alert("Erro", mensagem);
     }
   }
 
-  // 🔄 Reiniciar Prova do Aluno
+  // ============================================================
+  // 🔄 REINICIAR
+  // ============================================================
+
   function handleReiniciar(id: number) {
     console.log("Reiniciando estado do aluno ID:", id);
-    setStatusAlunos((prev) => ({ ...prev, [id]: "Não iniciado" }));
+
+    setStatusAlunos((prev) => ({
+      ...prev,
+      [id]: "Não iniciado",
+    }));
+
     setMenuAberto(null);
   }
 
-  // 📡 Iniciar servidor de Sockets
+  // ============================================================
+  // 📡 SERVIDOR
+  // ============================================================
+
   function handleIniciarServidor() {
     console.log("Iniciando Socket Server...");
+
     startServer();
+
     setServidorAtivo(true);
   }
 
   function handleEncerrarServidor() {
     console.log("Encerrando Socket Server...");
+
     stopServer();
+
     setServidorAtivo(false);
   }
 
+  // ============================================================
+  // RETURN
+  // ============================================================
+
   return {
     avaliacoesOpcoes,
+
     servidorAtivo,
+
     escolasOpcoes,
     turmasOpcoes,
+
     dispositivosOpcoes,
     dispositivosAtribuidos,
+
     atribuirDispositivo,
     obterStatusAluno,
+
     carregandoOpcoes,
     carregandoTurmas,
     carregandoAlunos,
@@ -483,30 +818,64 @@ export function useConsulta() {
     filtros: {
       avaliacao,
       setAvaliacao,
+
       escola,
       setEscola,
+
       turma,
       setTurma,
+
       dispositivo,
       setDispositivo,
+
       ano,
       setAno,
+
       horarioInicio,
       setHorarioInicio,
     },
 
     menuAberto,
     alunos,
+
     limparFiltros,
     toggleMenu,
+
     handleIniciar,
     handleIniciarTodos,
     handlePausar,
     handleReiniciar,
+
     handleIniciarServidor,
     handleEncerrarServidor,
-    // 🟢 Funções expostas para uso no componente de tela
+
+    // ==========================================================
+    // 🔋 BATERIA
+    // ==========================================================
+
+    bateriasAlunos,
+    obterBateriaAluno,
     obterBateriaDispositivo,
+    atualizarBateriasAlunos,
+
+    // ==========================================================
+    // 📚 DISCIPLINAS
+    // ==========================================================
+
     obterDisciplinaAplicada,
+
+    // ==========================================================
+    // 📝 RESPOSTAS
+    // ==========================================================
+
+    respostasAlunos,
+    obterRespostasDisciplina,
+    atualizarRespostasAlunos,
+
+    // ==========================================================
+    // 🕐 ÚLTIMA ATUALIZAÇÃO
+    // ==========================================================
+
+    ultimaAtualizacao,
   };
 }
