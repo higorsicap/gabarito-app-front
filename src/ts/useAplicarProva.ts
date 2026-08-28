@@ -9,6 +9,7 @@ import {
   TurmaSelect,
   atualizarPausaDispositivo,
   buscarBateriaDispositivo,
+  buscarDataHoraDispositivo,
   buscarDisciplinasAplicadas,
   buscarRespostasAluno,
   listarAlunoEscolaTurma,
@@ -74,6 +75,13 @@ export function useConsulta() {
 
   // ============================================================
   // 📝 RESPOSTAS POR ALUNO E DISCIPLINA
+  //
+  // {
+  //   161: {
+  //     "12": 2,
+  //     "13": 0
+  //   }
+  // }
   // ============================================================
 
   const [respostasAlunos, setRespostasAlunos] = useState<
@@ -82,6 +90,12 @@ export function useConsulta() {
 
   // ============================================================
   // 🔋 BATERIA POR ALUNO
+  //
+  // {
+  //   161: 19,
+  //   17831: 87,
+  //   2422: 45
+  // }
   // ============================================================
 
   const [bateriasAlunos, setBateriasAlunos] = useState<
@@ -89,13 +103,21 @@ export function useConsulta() {
   >({});
 
   // ============================================================
-  // 🕐 ÚLTIMA ATUALIZAÇÃO
+  // 🕐 ÚLTIMA COMUNICAÇÃO POR ALUNO
   //
-  // Fica somente em memória.
-  // Não é salvo no banco.
+  // {
+  //   161: "2026-08-28 08:37:42",
+  //   17831: "2026-08-28 08:38:01"
+  // }
+  //
+  // Não salva nada aqui.
+  // Esse estado existe somente enquanto a tela está aberta.
+  // O valor real vem do campo dispositivos.atualizado_em.
   // ============================================================
 
-  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
+  const [datasHoraAlunos, setDatasHoraAlunos] = useState<
+    Record<number, string | null>
+  >({});
 
   // ============================================================
   // CARREGAMENTO
@@ -215,7 +237,7 @@ export function useConsulta() {
       setStatusAlunos({});
       setRespostasAlunos({});
       setBateriasAlunos({});
-      setUltimaAtualizacao(null);
+      setDatasHoraAlunos({});
 
       if (!escola) {
         setTurmasOpcoes([]);
@@ -264,7 +286,7 @@ export function useConsulta() {
         setStatusAlunos({});
         setRespostasAlunos({});
         setBateriasAlunos({});
-        setUltimaAtualizacao(null);
+        setDatasHoraAlunos({});
         return;
       }
 
@@ -300,7 +322,7 @@ export function useConsulta() {
           setAlunos([]);
           setRespostasAlunos({});
           setBateriasAlunos({});
-          setUltimaAtualizacao(null);
+          setDatasHoraAlunos({});
         }
       } finally {
         if (isMounted) {
@@ -363,11 +385,6 @@ export function useConsulta() {
       }
 
       setRespostasAlunos(novoMapa);
-
-      console.log(
-        "📊 [Respostas] Novo mapa:",
-        JSON.stringify(novoMapa, null, 2),
-      );
     } catch (error) {
       console.error("❌ Erro ao atualizar respostas dos alunos:", error);
     }
@@ -405,20 +422,55 @@ export function useConsulta() {
       }
 
       setBateriasAlunos(novoMapa);
-
-      console.log("🔋 [Bateria] Novo mapa:", JSON.stringify(novoMapa, null, 2));
     } catch (error) {
       console.error("❌ [Bateria] Erro ao atualizar baterias:", error);
     }
   }, [alunos]);
 
   // ============================================================
+  // 🕐 ATUALIZAR ÚLTIMA COMUNICAÇÃO
+  // ============================================================
+
+  const atualizarDatasHoraAlunos = useCallback(async () => {
+    if (alunos.length === 0) {
+      return;
+    }
+
+    try {
+      const novoMapa: Record<number, string | null> = {};
+
+      for (const aluno of alunos) {
+        try {
+          // aluno.id = id_estudante_origem
+          const dataHora = await buscarDataHoraDispositivo(aluno.id);
+
+          novoMapa[aluno.id] = dataHora;
+
+          console.log(
+            `🕐 [Comunicação] Aluno=${aluno.id} | Atualizado em=${dataHora}`,
+          );
+        } catch (error) {
+          console.error(
+            `❌ [Comunicação] Erro ao buscar data/hora do aluno ${aluno.id}:`,
+            error,
+          );
+
+          novoMapa[aluno.id] = null;
+        }
+      }
+
+      setDatasHoraAlunos(novoMapa);
+    } catch (error) {
+      console.error("❌ [Comunicação] Erro ao atualizar datas:", error);
+    }
+  }, [alunos]);
+
+  // ============================================================
   // 🔄 ATUALIZAÇÃO AUTOMÁTICA
   //
-  // Faz:
-  // 1. Busca respostas
-  // 2. Busca baterias
-  // 3. Marca o horário da atualização
+  // 1. Respostas
+  // 2. Bateria
+  // 3. Última comunicação
   // 4. Aguarda 3 segundos
   // 5. Repete
   // ============================================================
@@ -433,29 +485,48 @@ export function useConsulta() {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const atualizar = async () => {
-      if (!ativo) return;
+      if (!ativo) {
+        return;
+      }
 
-      console.log("🔄 [Painel] Atualizando respostas e baterias...");
+      console.log(
+        "🔄 [Painel] Atualizando respostas, bateria e última comunicação...",
+      );
+
+      // ========================================================
+      // 📝 RESPOSTAS
+      // ========================================================
 
       await atualizarRespostasAlunos();
 
-      if (!ativo) return;
+      if (!ativo) {
+        return;
+      }
+
+      // ========================================================
+      // 🔋 BATERIA
+      // ========================================================
 
       await atualizarBateriasAlunos();
 
-      if (!ativo) return;
+      if (!ativo) {
+        return;
+      }
 
-      const agora = new Date();
+      // ========================================================
+      // 🕐 ÚLTIMA COMUNICAÇÃO
+      // ========================================================
 
-      setUltimaAtualizacao(agora);
+      await atualizarDatasHoraAlunos();
 
-      console.log(
-        "🕐 [Painel] Última atualização:",
-        agora.toLocaleTimeString(),
-      );
+      if (!ativo) {
+        return;
+      }
 
-      if (!ativo) return;
+      console.log("✅ [Painel] Atualização concluída.");
 
+      // Aguarda 3 segundos para executar
+      // novamente.
       timeoutId = setTimeout(atualizar, 3000);
     };
 
@@ -468,7 +539,13 @@ export function useConsulta() {
         clearTimeout(timeoutId);
       }
     };
-  }, [avaliacao, alunos, atualizarRespostasAlunos, atualizarBateriasAlunos]);
+  }, [
+    avaliacao,
+    alunos,
+    atualizarRespostasAlunos,
+    atualizarBateriasAlunos,
+    atualizarDatasHoraAlunos,
+  ]);
 
   // ============================================================
   // 📝 OBTER RESPOSTAS DE UMA DISCIPLINA
@@ -494,6 +571,17 @@ export function useConsulta() {
       return bateriasAlunos[alunoId] ?? 0;
     },
     [bateriasAlunos],
+  );
+
+  // ============================================================
+  // 🕐 OBTER DATA/HORA DO ALUNO
+  // ============================================================
+
+  const obterDataHoraAluno = useCallback(
+    (alunoId: number): string | null => {
+      return datasHoraAlunos[alunoId] ?? null;
+    },
+    [datasHoraAlunos],
   );
 
   // ============================================================
@@ -545,7 +633,7 @@ export function useConsulta() {
     setStatusAlunos({});
     setRespostasAlunos({});
     setBateriasAlunos({});
-    setUltimaAtualizacao(null);
+    setDatasHoraAlunos({});
   }
 
   // ============================================================
@@ -873,9 +961,11 @@ export function useConsulta() {
     atualizarRespostasAlunos,
 
     // ==========================================================
-    // 🕐 ÚLTIMA ATUALIZAÇÃO
+    // 🕐 ÚLTIMA COMUNICAÇÃO
     // ==========================================================
 
-    ultimaAtualizacao,
+    datasHoraAlunos,
+    obterDataHoraAluno,
+    atualizarDatasHoraAlunos,
   };
 }

@@ -537,6 +537,32 @@ export async function buscarDisciplinasAplicadas(
   }
 }
 
+export async function buscarDataHoraDispositivo(
+  idEstudanteOrigem: number,
+): Promise<string | null> {
+  try {
+    const registro = await db.getFirstAsync<{
+      atualizado_em: string | null;
+    }>(
+      `
+        SELECT
+          d.atualizado_em
+        FROM dispositivos d
+        JOIN liberacoes_prova lp
+          ON lp.dispositivo_id = d.id
+        WHERE lp.id_estudante_origem = ?
+      `,
+      [idEstudanteOrigem],
+    );
+
+    return registro?.atualizado_em ?? null;
+  } catch (error) {
+    console.error("❌ Erro ao buscar data/hora do dispositivo:", error);
+
+    return null;
+  }
+}
+
 export async function buscarBateriaDispositivo(
   idEstudanteOrigem: number,
 ): Promise<number | null> {

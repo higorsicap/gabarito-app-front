@@ -65,10 +65,11 @@ export default function ConsultaScreen() {
     obterBateriaAluno,
 
     // ============================================================
-    // 🕐 ÚLTIMA ATUALIZAÇÃO
+    // 🕐 ÚLTIMA COMUNICAÇÃO POR ALUNO
     // ============================================================
 
-    ultimaAtualizacao,
+    datasHoraAlunos = {},
+    obterDataHoraAluno,
   } = useConsulta();
 
   // ============================================================
@@ -329,48 +330,63 @@ export default function ConsultaScreen() {
         ? obterBateriaAluno(item.id)
         : 0;
 
+      // ========================================================
+      // 🕐 ÚLTIMA COMUNICAÇÃO
+      // ========================================================
+
+      const atualizadoEm = obterDataHoraAluno
+        ? obterDataHoraAluno(item.id)
+        : (datasHoraAlunos[item.id] ?? null);
+
       const disciplinasAplicadas: DisciplinaAplicada[] =
         item.disciplinasAplicadas || [];
 
       return (
         <View style={styles.cardAluno}>
-          {/* CABEÇALHO */}
-          <View style={styles.cardHeader}>
-            <Text style={styles.nomeAluno} numberOfLines={2}>
-              {item.nome}
-            </Text>
+          {/* ==================================================
+              CABEÇALHO
+          ================================================== */}
 
-            {/* 🕐 ÚLTIMA ATUALIZAÇÃO */}
+          <View style={styles.cardHeader}>
             <View
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
+                flex: 1,
               }}
             >
-              <Ionicons name="sync-outline" size={12} color="#6B7280" />
+              <Text style={styles.nomeAluno} numberOfLines={2}>
+                {item.nome}
+              </Text>
 
-              <Text
+              {/* 🕐 Atualizado em */}
+              <View
                 style={{
-                  fontSize: 11,
-                  color: "#6B7280",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginTop: 3,
                 }}
               >
-                Atualizado em:{" "}
-                {ultimaAtualizacao
-                  ? ultimaAtualizacao.toLocaleTimeString("pt-BR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })
-                  : "--:--:--"}
-              </Text>
+                <Ionicons name="time-outline" size={12} color="#6B7280" />
+
+                <Text
+                  style={{
+                    marginLeft: 4,
+                    fontSize: 11,
+                    color: "#6B7280",
+                  }}
+                >
+                  Atualizado em:{" "}
+                  {atualizadoEm ? formatarDataHora(atualizadoEm) : "--:--:--"}
+                </Text>
+              </View>
             </View>
 
             {renderBadgeStatus(statusAtual)}
           </View>
 
-          {/* CORPO */}
+          {/* ==================================================
+              CORPO
+          ================================================== */}
+
           <View style={styles.cardBody}>
             {/* PROVA + BATERIA */}
             <View style={styles.provaHeaderRow}>
@@ -459,7 +475,10 @@ export default function ConsultaScreen() {
             </View>
           </View>
 
-          {/* RODAPÉ */}
+          {/* ==================================================
+              RODAPÉ
+          ================================================== */}
+
           <View style={styles.cardFooter}>
             {/* DISPOSITIVO */}
             <View style={styles.selectDispositivo}>
@@ -542,11 +561,12 @@ export default function ConsultaScreen() {
       obterStatusAluno,
       obterRespostasDisciplina,
       obterBateriaAluno,
+      datasHoraAlunos,
+      obterDataHoraAluno,
       handlePausar,
       handleTransferir,
       avaliacaoSelecionada,
       renderBadgeStatus,
-      ultimaAtualizacao,
     ],
   );
 
@@ -560,12 +580,12 @@ export default function ConsultaScreen() {
 
       <FlatList
         data={alunos}
-        // ✅ Atualiza os cards quando qualquer
-        // um desses estados mudar
+        // 🔄 Atualiza quando respostas,
+        // bateria ou data/hora mudarem
         extraData={{
           respostasAlunos,
           bateriasAlunos,
-          ultimaAtualizacao,
+          datasHoraAlunos,
         }}
         keyExtractor={(item) => String(item.id)}
         ListHeaderComponent={renderHeader}
@@ -591,4 +611,40 @@ export default function ConsultaScreen() {
       />
     </View>
   );
+}
+
+// ============================================================
+// 🕐 FORMATA DATA/HORA
+// ============================================================
+
+function formatarDataHora(valor: string): string {
+  if (!valor) {
+    return "--:--:--";
+  }
+
+  // Trata o formato do SQLite:
+  // YYYY-MM-DD HH:mm:ss
+  const partes = valor.trim().split(" ");
+
+  if (partes.length >= 2) {
+    const data = partes[0];
+
+    const hora = partes[1];
+
+    const dataPartes = data.split("-");
+
+    if (dataPartes.length === 3) {
+      const ano = dataPartes[0];
+
+      const mes = dataPartes[1];
+
+      const dia = dataPartes[2];
+
+      return `${dia}/${mes}/${ano} ${hora}`;
+    }
+  }
+
+  // Caso o banco já esteja retornando
+  // outro formato.
+  return valor;
 }
