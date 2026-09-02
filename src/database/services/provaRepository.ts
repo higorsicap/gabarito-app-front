@@ -430,6 +430,9 @@ export async function atualizarBateriaDispositivo(
     console.log(
       `🔋 [Bateria] ID=${dispositivoId} | bateria=${bateria} | linhas afetadas=${resultado.changes}`,
     );
+
+    // Atualiza a última comunicação do dispositivo
+    await atualizarDataConexao(dispositivoId);
   } catch (error) {
     console.error("❌ Erro ao atualizar bateria do dispositivo:", error);
 
@@ -437,11 +440,25 @@ export async function atualizarBateriaDispositivo(
   }
 }
 
+function obterDataHoraLocal(): string {
+  const agora = new Date();
+
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, "0");
+  const dia = String(agora.getDate()).padStart(2, "0");
+  const hora = String(agora.getHours()).padStart(2, "0");
+  const minuto = String(agora.getMinutes()).padStart(2, "0");
+  const segundo = String(agora.getSeconds()).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia} ${hora}:${minuto}:${segundo}`;
+}
+
 export async function atualizarDataConexao(
   dispositivoId: string,
-  dataHora: string | null,
 ): Promise<void> {
   try {
+    const dataHora = obterDataHoraLocal();
+
     const query = `
       UPDATE dispositivos
       SET atualizado_em = ?

@@ -514,17 +514,27 @@ export default function ConsultaScreen() {
                   }}
                 />
 
-                {dispositivosOpcoes.map((d) => (
-                  <Picker.Item
-                    key={d.id}
-                    label={d.nome}
-                    value={String(d.id)}
-                    color="#1F2937"
-                    style={{
-                      fontSize: 12,
-                    }}
-                  />
-                ))}
+                {dispositivosOpcoes
+                  .filter((dispositivo) => {
+                    const idDispositivo = String(dispositivo.id);
+
+                    return !Object.entries(dispositivosAtribuidos).some(
+                      ([idAluno, dispositivoAtribuido]) =>
+                        String(dispositivoAtribuido) === idDispositivo &&
+                        Number(idAluno) !== item.id,
+                    );
+                  })
+                  .map((d) => (
+                    <Picker.Item
+                      key={d.id}
+                      label={d.nome}
+                      value={String(d.id)}
+                      color="#1F2937"
+                      style={{
+                        fontSize: 12,
+                      }}
+                    />
+                  ))}
               </Picker>
             </View>
 
