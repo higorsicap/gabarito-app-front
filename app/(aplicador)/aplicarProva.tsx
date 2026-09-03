@@ -6,12 +6,10 @@ import {
 } from "@/src/database/services/provaRepository";
 
 import { styles } from "@/src/styles/aplicaProva.styles";
-
 import { StatusAluno, useConsulta } from "@/src/ts/useAplicarProva";
 
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
-
 import { useCallback, useEffect, useMemo } from "react";
 
 import {
@@ -26,24 +24,17 @@ export default function ConsultaScreen() {
   const {
     avaliacoesOpcoes = [],
     servidorAtivo,
-
     escolasOpcoes = [],
     turmasOpcoes = [],
     dispositivosOpcoes = [],
-
     dispositivosAtribuidos = {},
-
     atribuirDispositivo,
     obterStatusAluno,
-
     carregandoOpcoes,
     carregandoTurmas,
     carregandoAlunos,
-
     filtros,
-
     alunos = [],
-
     handlePausar,
     handleIniciarServidor,
     handleEncerrarServidor,
@@ -53,21 +44,23 @@ export default function ConsultaScreen() {
     // ============================================================
     // 📝 RESPOSTAS
     // ============================================================
-
     obterRespostasDisciplina,
     respostasAlunos = {},
 
     // ============================================================
+    // ✅ CONCLUSÃO
+    // ============================================================
+    conclusoesAlunos = {},
+
+    // ============================================================
     // 🔋 BATERIA
     // ============================================================
-
     bateriasAlunos = {},
     obterBateriaAluno,
 
     // ============================================================
     // 🕐 ÚLTIMA COMUNICAÇÃO POR ALUNO
     // ============================================================
-
     datasHoraAlunos = {},
     obterDataHoraAluno,
   } = useConsulta();
@@ -75,7 +68,6 @@ export default function ConsultaScreen() {
   // ============================================================
   // AVALIAÇÃO SELECIONADA
   // ============================================================
-
   const avaliacaoSelecionada = useMemo(() => {
     return avaliacoesOpcoes.find(
       (item) =>
@@ -86,7 +78,6 @@ export default function ConsultaScreen() {
   // ============================================================
   // SINCRONIZA ANO E HORÁRIO
   // ============================================================
-
   useEffect(() => {
     if (avaliacaoSelecionada) {
       if (avaliacaoSelecionada.id_anoletivo) {
@@ -97,7 +88,6 @@ export default function ConsultaScreen() {
         const data = new Date(avaliacaoSelecionada.data_inicio_avaliacao);
 
         const horas = String(data.getHours()).padStart(2, "0");
-
         const minutos = String(data.getMinutes()).padStart(2, "0");
 
         filtros.setHorarioInicio?.(`${horas}:${minutos}`);
@@ -111,10 +101,8 @@ export default function ConsultaScreen() {
   // ============================================================
   // STATUS
   // ============================================================
-
   const renderBadgeStatus = useCallback((status: StatusAluno) => {
     let badgeStyle = styles.badgePendente;
-
     let textStyle = styles.txtPendente;
 
     switch (status) {
@@ -155,7 +143,6 @@ export default function ConsultaScreen() {
   // ============================================================
   // HEADER
   // ============================================================
-
   const renderHeader = useCallback(
     () => (
       <View style={styles.cardFiltro}>
@@ -313,11 +300,13 @@ export default function ConsultaScreen() {
   // ============================================================
   // ITEM DO ALUNO
   // ============================================================
-
   const renderItem = useCallback(
     ({ item }: { item: any }) => {
       const dispositivoSelecionado = dispositivosAtribuidos[item.id] || "";
 
+      // ========================================================
+      // ✅ STATUS DO ALUNO
+      // ========================================================
       const statusAtual = obterStatusAluno
         ? obterStatusAluno(item.id, item.status)
         : item.status;
@@ -325,7 +314,6 @@ export default function ConsultaScreen() {
       // ========================================================
       // 🔋 BATERIA
       // ========================================================
-
       const percentualBateria = obterBateriaAluno
         ? obterBateriaAluno(item.id)
         : 0;
@@ -333,7 +321,6 @@ export default function ConsultaScreen() {
       // ========================================================
       // 🕐 ÚLTIMA COMUNICAÇÃO
       // ========================================================
-
       const atualizadoEm = obterDataHoraAluno
         ? obterDataHoraAluno(item.id)
         : (datasHoraAlunos[item.id] ?? null);
@@ -346,7 +333,6 @@ export default function ConsultaScreen() {
           {/* ==================================================
               CABEÇALHO
           ================================================== */}
-
           <View style={styles.cardHeader}>
             <View
               style={{
@@ -386,7 +372,6 @@ export default function ConsultaScreen() {
           {/* ==================================================
               CORPO
           ================================================== */}
-
           <View style={styles.cardBody}>
             {/* PROVA + BATERIA */}
             <View style={styles.provaHeaderRow}>
@@ -478,7 +463,6 @@ export default function ConsultaScreen() {
           {/* ==================================================
               RODAPÉ
           ================================================== */}
-
           <View style={styles.cardFooter}>
             {/* DISPOSITIVO */}
             <View style={styles.selectDispositivo}>
@@ -583,7 +567,6 @@ export default function ConsultaScreen() {
   // ============================================================
   // TELA
   // ============================================================
-
   return (
     <View style={styles.container}>
       <BottomNav />
@@ -591,9 +574,10 @@ export default function ConsultaScreen() {
       <FlatList
         data={alunos}
         // 🔄 Atualiza quando respostas,
-        // bateria ou data/hora mudarem
+        // conclusão, bateria ou data/hora mudarem
         extraData={{
           respostasAlunos,
+          conclusoesAlunos,
           bateriasAlunos,
           datasHoraAlunos,
         }}
@@ -626,7 +610,6 @@ export default function ConsultaScreen() {
 // ============================================================
 // 🕐 FORMATA DATA/HORA
 // ============================================================
-
 function formatarDataHora(valor: string): string {
   if (!valor) {
     return "--:--:--";
@@ -638,23 +621,19 @@ function formatarDataHora(valor: string): string {
 
   if (partes.length >= 2) {
     const data = partes[0];
-
     const hora = partes[1];
 
     const dataPartes = data.split("-");
 
     if (dataPartes.length === 3) {
       const ano = dataPartes[0];
-
       const mes = dataPartes[1];
-
       const dia = dataPartes[2];
 
       return `${dia}/${mes}/${ano} ${hora}`;
     }
   }
 
-  // Caso o banco já esteja retornando
-  // outro formato.
+  // Caso o banco já esteja retornando outro formato.
   return valor;
 }

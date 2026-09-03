@@ -121,6 +121,7 @@ export function iniciarDb() {
                 liberada INTEGER DEFAULT 0,
                 pausada INTEGER DEFAULT 0,
                 entregue INTEGER DEFAULT 0,
+                concluido INTEGER DEFAULT 0,
                 data_liberacao DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (dispositivo_id) REFERENCES dispositivos (id) ON DELETE CASCADE
         );

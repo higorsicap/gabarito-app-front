@@ -158,6 +158,7 @@ export interface AvaliacaoSelect {
   descricao_avaliacao: string;
   data_inicio_avaliacao: number;
   id_anoletivo: number;
+  id_cliente: number;
 }
 
 export async function preencherSelectAvaliacao(): Promise<AvaliacaoSelect[]> {
@@ -168,7 +169,8 @@ export async function preencherSelectAvaliacao(): Promise<AvaliacaoSelect[]> {
             asm.id_avaliacao_saed_mob,
             asm.descricao_avaliacao,
             asm.data_inicio_avaliacao,
-            asm.id_anoletivo
+            asm.id_anoletivo,
+            asm.id_cliente
         FROM avaliacao_saed_mob asm 
         ORDER BY asm.descricao_avaliacao ASC;
         `,
@@ -185,20 +187,25 @@ export interface EscolaSelect {
   nome_escola: string;
 }
 
-export async function preencherSelectEscola(): Promise<EscolaSelect[]> {
+export async function preencherSelectEscola(
+  idCliente: string | number,
+): Promise<EscolaSelect[]> {
   try {
     const result = await db.getAllAsync<EscolaSelect>(
       `
-            SELECT 
-                aes.id_escola,
-                aes.nome_escola 
-            FROM ava_escolas_saed aes 
-            ORDER BY aes.nome_escola ASC
-            `,
+        SELECT
+          aes.id_escola,
+          aes.nome_escola
+        FROM ava_escolas_saed aes
+        WHERE aes.id_cliente = ?
+        ORDER BY aes.nome_escola ASC
+      `,
+      [idCliente],
     );
+
     return result;
   } catch (error) {
-    console.error("Erro ao buscar provas offline:", error);
+    console.error("Erro ao buscar escolas:", error);
     return [];
   }
 }
@@ -245,7 +252,6 @@ export async function listarAlunoEscolaTurma(
   idTurma: string | number,
 ): Promise<AlunoSelect[]> {
   try {
-    // Se falta escola ou turma, não executa a busca
     if (!idEscola || !idTurma) return [];
 
     const result = await db.getAllAsync<{
@@ -253,26 +259,32 @@ export async function listarAlunoEscolaTurma(
       nome_estudante: string;
     }>(
       `
-            SELECT 
-                aes.id_estudante_origem,
-                aes.nome_estudante 
-            FROM ava_estudante_saed aes 
-            WHERE aes.id_escola = $idEscola
-                AND aes.id_turma = $idTurma
-            ORDER BY aes.nome_estudante ASC
-            `,
+      SELECT 
+          aes.id_estudante_origem,
+          aes.nome_estudante 
+      FROM ava_estudante_saed aes 
+      WHERE aes.id_escola = $idEscola
+          AND aes.id_turma = $idTurma
+      `,
       {
         $idEscola: idEscola,
         $idTurma: idTurma,
       },
     );
 
-    // Mapeia os dados para o formato consumido pelo componente
-    return result.map((item) => ({
-      id: item.id_estudante_origem,
-      nome: item.nome_estudante,
-      status: "Pendente", // Valor padrão ou vindo de outra tabela se houver
-    }));
+    // Mapeia e ordena usando Natural Sort
+    return result
+      .map((item) => ({
+        id: item.id_estudante_origem,
+        nome: item.nome_estudante,
+        status: "Pendente",
+      }))
+      .sort((a, b) =>
+        a.nome.localeCompare(b.nome, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      );
   } catch (error) {
     console.error("Erro ao buscar alunos offline:", error);
     return [];
@@ -693,5 +705,46 @@ export async function buscarRespostasAluno(
     console.error("❌ Erro ao buscar respostas do aluno:", error);
 
     return [];
+  }
+}
+
+export async function atualizarConclusaoDispositivo(
+  dispositivoId: string,
+  concluido: boolean,
+): Promise<void> {
+  try {
+    await db.runAsync(
+      `
+      UPDATE liberacoes_prova 
+      SET concluido = ? 
+      WHERE dispositivo_id = ?;
+      `,
+      [concluido ? 1 : 0, dispositivoId],
+    );
+  } catch (error) {
+    console.error("❌ Erro ao atualizar conclusão do dispositivo:", error);
+    throw error;
+  }
+}
+
+export async function buscarConclusaoDispositivo(
+  dispositivoId: string,
+): Promise<boolean> {
+  try {
+    const registro = await db.getFirstAsync<{ concluido: number }>(
+      `
+      SELECT 
+          concluido 
+      FROM liberacoes_prova 
+      WHERE dispositivo_id = ? 
+      LIMIT 1;
+      `,
+      [dispositivoId],
+    );
+
+    return Number(registro?.concluido) === 1;
+  } catch (error) {
+    console.error("❌ Erro ao buscar conclusão do dispositivo:", error);
+    return false;
   }
 }

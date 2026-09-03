@@ -5,7 +5,7 @@ import { NetworkInfo } from "react-native-network-info";
 
 import {
   atualizarBateriaDispositivo,
-  atualizarDataConexao,
+  atualizarConclusaoDispositivo,
   buscarPausaDispositivo,
   buscarProvaLiberadaParaDispositivo,
   inserirRespostasAluno,
@@ -260,13 +260,13 @@ export async function startServer() {
 
           const nivelBateria = !Array.isArray(body) ? body.nivelBateria : null;
 
-          const dataHora = !Array.isArray(body) ? body.dataHora : null;
+          const concluido = !Array.isArray(body) ? body.concluido : null;
 
           console.log("📱 [Servidor] Dispositivo:", dispositivoId);
 
           console.log("🔋 [Servidor] Nível da bateria:", nivelBateria);
 
-          console.log("🕐 [Servidor] Data/hora da comunicação:", dataHora);
+          console.log("🕐 [Servidor] Data/hora da comunicação:", concluido);
 
           // ==========================================================
           // 🔋 ATUALIZA BATERIA DO DISPOSITIVO
@@ -292,18 +292,24 @@ export async function startServer() {
           }
 
           // ==========================================================
-          // 🕐 ATUALIZA HORA DA ÚLTIMA COMUNICAÇÃO
+          // 🕐 ATUALIZA CONCLUSÃO DA PROVA
           // ==========================================================
 
-          if (dispositivoId && dataHora !== undefined && dataHora !== null) {
-            await atualizarDataConexao(String(dispositivoId), String(dataHora));
+          if (dispositivoId && concluido !== undefined && concluido !== null) {
+            // Converte o número 1 para o booleano true (ou 0 para false)
+            const isConcluido = Number(concluido) === 1;
+
+            await atualizarConclusaoDispositivo(
+              String(dispositivoId),
+              isConcluido,
+            );
 
             console.log(
-              `✅ [dataHora] Dispositivo ${dispositivoId} atualizado para ${dataHora}`,
+              `✅ [Conclusão] Dispositivo ${dispositivoId} atualizado para concluído: ${isConcluido}`,
             );
           } else {
             console.warn(
-              "⚠️ [dataHora] Dispositivo ou data/hora não informado.",
+              "⚠️ [Conclusão] Dispositivo ou status de conclusão não informado.",
             );
           }
 
@@ -344,7 +350,7 @@ export async function startServer() {
               sucesso: true,
               mensagem: `${listaRespostas.length} respostas processadas com sucesso!`,
               bateria: nivelBateria,
-              dataHora,
+              concluido: concluido,
               dispositivoId,
               dados: respostaPayload,
             }),

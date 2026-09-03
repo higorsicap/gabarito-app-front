@@ -9,6 +9,7 @@ import {
   TurmaSelect,
   atualizarPausaDispositivo,
   buscarBateriaDispositivo,
+  buscarConclusaoDispositivo,
   buscarDataHoraDispositivo,
   buscarDisciplinasAplicadas,
   buscarRespostasAluno,
@@ -75,13 +76,6 @@ export function useConsulta() {
 
   // ============================================================
   // 📝 RESPOSTAS POR ALUNO E DISCIPLINA
-  //
-  // {
-  //   161: {
-  //     "12": 2,
-  //     "13": 0
-  //   }
-  // }
   // ============================================================
 
   const [respostasAlunos, setRespostasAlunos] = useState<
@@ -89,13 +83,15 @@ export function useConsulta() {
   >({});
 
   // ============================================================
+  // ✅ CONCLUSÃO POR ALUNO
+  // ============================================================
+
+  const [conclusoesAlunos, setConclusoesAlunos] = useState<
+    Record<number, boolean>
+  >({});
+
+  // ============================================================
   // 🔋 BATERIA POR ALUNO
-  //
-  // {
-  //   161: 19,
-  //   17831: 87,
-  //   2422: 45
-  // }
   // ============================================================
 
   const [bateriasAlunos, setBateriasAlunos] = useState<
@@ -104,15 +100,6 @@ export function useConsulta() {
 
   // ============================================================
   // 🕐 ÚLTIMA COMUNICAÇÃO POR ALUNO
-  //
-  // {
-  //   161: "2026-08-28 08:37:42",
-  //   17831: "2026-08-28 08:38:01"
-  // }
-  //
-  // Não salva nada aqui.
-  // Esse estado existe somente enquanto a tela está aberta.
-  // O valor real vem do campo dispositivos.atualizado_em.
   // ============================================================
 
   const [datasHoraAlunos, setDatasHoraAlunos] = useState<
@@ -195,20 +182,15 @@ export function useConsulta() {
       try {
         setCarregandoOpcoes(true);
 
-        const [dadosAvaliacoes, dadosEscolas] = await Promise.all([
-          preencherSelectAvaliacao(),
-          preencherSelectEscola(),
-        ]);
+        const dadosAvaliacoes = await preencherSelectAvaliacao();
 
         if (!isMounted) return;
 
         setAvaliacoesOpcoes(
           Array.isArray(dadosAvaliacoes) ? dadosAvaliacoes : [],
         );
-
-        setEscolasOpcoes(Array.isArray(dadosEscolas) ? dadosEscolas : []);
       } catch (error) {
-        console.error("Erro ao carregar dados iniciais:", error);
+        console.error("Erro ao carregar avaliações:", error);
       } finally {
         if (isMounted) {
           setCarregandoOpcoes(false);
@@ -224,6 +206,68 @@ export function useConsulta() {
   }, []);
 
   // ============================================================
+  // 🏫 ESCOLAS POR AVALIAÇÃO
+  // ============================================================
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function carregarEscolasPorAvaliacao() {
+      if (!avaliacao) {
+        setEscolasOpcoes([]);
+        setEscola("");
+        setTurma("");
+        setTurmasOpcoes([]);
+        return;
+      }
+
+      const avaliacaoSelecionada = avaliacoesOpcoes.find(
+        (item) => String(item.id_avaliacao_saed_mob) === String(avaliacao),
+      );
+
+      if (!avaliacaoSelecionada) {
+        setEscolasOpcoes([]);
+        return;
+      }
+
+      try {
+        setCarregandoOpcoes(true);
+
+        console.log(
+          "📝 Avaliação selecionada:",
+          avaliacaoSelecionada.id_avaliacao_saed_mob,
+        );
+
+        console.log("🏢 ID Cliente:", avaliacaoSelecionada.id_cliente);
+
+        const dadosEscolas = await preencherSelectEscola(
+          avaliacaoSelecionada.id_cliente,
+        );
+
+        if (!isMounted) return;
+
+        setEscolasOpcoes(Array.isArray(dadosEscolas) ? dadosEscolas : []);
+      } catch (error) {
+        console.error("Erro ao carregar escolas:", error);
+
+        if (isMounted) {
+          setEscolasOpcoes([]);
+        }
+      } finally {
+        if (isMounted) {
+          setCarregandoOpcoes(false);
+        }
+      }
+    }
+
+    carregarEscolasPorAvaliacao();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [avaliacao, avaliacoesOpcoes]);
+
+  // ============================================================
   // 🏫 TURMAS POR ESCOLA
   // ============================================================
 
@@ -236,6 +280,7 @@ export function useConsulta() {
       setDispositivosAtribuidos({});
       setStatusAlunos({});
       setRespostasAlunos({});
+      setConclusoesAlunos({});
       setBateriasAlunos({});
       setDatasHoraAlunos({});
 
@@ -285,6 +330,7 @@ export function useConsulta() {
         setDispositivosAtribuidos({});
         setStatusAlunos({});
         setRespostasAlunos({});
+        setConclusoesAlunos({});
         setBateriasAlunos({});
         setDatasHoraAlunos({});
         return;
@@ -321,6 +367,7 @@ export function useConsulta() {
         if (isMounted) {
           setAlunos([]);
           setRespostasAlunos({});
+          setConclusoesAlunos({});
           setBateriasAlunos({});
           setDatasHoraAlunos({});
         }
@@ -391,6 +438,54 @@ export function useConsulta() {
   }, [avaliacao, alunos]);
 
   // ============================================================
+  // ✅ ATUALIZAR CONCLUSÕES
+  // ============================================================
+
+  const atualizarConclusoesAlunos = useCallback(async () => {
+    if (alunos.length === 0) {
+      setConclusoesAlunos({});
+      return;
+    }
+
+    try {
+      const novoMapa: Record<number, boolean> = {};
+
+      for (const aluno of alunos) {
+        const dispositivoId = dispositivosAtribuidos[aluno.id];
+
+        if (!dispositivoId) {
+          novoMapa[aluno.id] = false;
+          continue;
+        }
+
+        try {
+          const concluido = await buscarConclusaoDispositivo(dispositivoId);
+
+          novoMapa[aluno.id] = Boolean(concluido);
+
+          console.log(
+            `✅ [Conclusão] Aluno=${aluno.id} | Dispositivo=${dispositivoId} | Concluído=${concluido}`,
+          );
+        } catch (error) {
+          console.error(
+            `❌ [Conclusão] Erro ao buscar conclusão do aluno ${aluno.id}:`,
+            error,
+          );
+
+          novoMapa[aluno.id] = false;
+        }
+      }
+
+      setConclusoesAlunos(novoMapa);
+    } catch (error) {
+      console.error(
+        "❌ [Conclusão] Erro ao atualizar conclusões dos alunos:",
+        error,
+      );
+    }
+  }, [alunos, dispositivosAtribuidos]);
+
+  // ============================================================
   // 🔋 ATUALIZAR BATERIAS
   // ============================================================
 
@@ -404,7 +499,6 @@ export function useConsulta() {
 
       for (const aluno of alunos) {
         try {
-          // aluno.id = id_estudante_origem
           const bateria = await buscarBateriaDispositivo(aluno.id);
 
           novoMapa[aluno.id] =
@@ -441,7 +535,6 @@ export function useConsulta() {
 
       for (const aluno of alunos) {
         try {
-          // aluno.id = id_estudante_origem
           const dataHora = await buscarDataHoraDispositivo(aluno.id);
 
           novoMapa[aluno.id] = dataHora;
@@ -469,10 +562,11 @@ export function useConsulta() {
   // 🔄 ATUALIZAÇÃO AUTOMÁTICA
   //
   // 1. Respostas
-  // 2. Bateria
-  // 3. Última comunicação
-  // 4. Aguarda 3 segundos
-  // 5. Repete
+  // 2. Conclusão
+  // 3. Bateria
+  // 4. Última comunicação
+  // 5. Aguarda 3 segundos
+  // 6. Repete
   // ============================================================
 
   useEffect(() => {
@@ -490,7 +584,7 @@ export function useConsulta() {
       }
 
       console.log(
-        "🔄 [Painel] Atualizando respostas, bateria e última comunicação...",
+        "🔄 [Painel] Atualizando respostas, conclusão, bateria e última comunicação...",
       );
 
       // ========================================================
@@ -498,6 +592,16 @@ export function useConsulta() {
       // ========================================================
 
       await atualizarRespostasAlunos();
+
+      if (!ativo) {
+        return;
+      }
+
+      // ========================================================
+      // ✅ CONCLUSÃO
+      // ========================================================
+
+      await atualizarConclusoesAlunos();
 
       if (!ativo) {
         return;
@@ -525,8 +629,6 @@ export function useConsulta() {
 
       console.log("✅ [Painel] Atualização concluída.");
 
-      // Aguarda 3 segundos para executar
-      // novamente.
       timeoutId = setTimeout(atualizar, 3000);
     };
 
@@ -543,6 +645,7 @@ export function useConsulta() {
     avaliacao,
     alunos,
     atualizarRespostasAlunos,
+    atualizarConclusoesAlunos,
     atualizarBateriasAlunos,
     atualizarDatasHoraAlunos,
   ]);
@@ -560,6 +663,17 @@ export function useConsulta() {
       return respostasAlunos[alunoId]?.[String(idDisciplina)] ?? 0;
     },
     [respostasAlunos],
+  );
+
+  // ============================================================
+  // ✅ OBTER CONCLUSÃO DO ALUNO
+  // ============================================================
+
+  const obterConclusaoAluno = useCallback(
+    (alunoId: number): boolean => {
+      return conclusoesAlunos[alunoId] ?? false;
+    },
+    [conclusoesAlunos],
   );
 
   // ============================================================
@@ -603,13 +717,33 @@ export function useConsulta() {
     alunoId: number,
     statusOriginal?: string,
   ): StatusAluno {
+    // ==========================================================
+    // ✅ CONCLUSÃO VEM PRIMEIRO
+    // ==========================================================
+
+    if (conclusoesAlunos[alunoId] === true) {
+      return "Concluído";
+    }
+
+    // ==========================================================
+    // STATUS MANUAL / ATUAL
+    // ==========================================================
+
     if (statusAlunos[alunoId]) {
       return statusAlunos[alunoId];
     }
 
+    // ==========================================================
+    // STATUS ORIGINAL DO ALUNO
+    // ==========================================================
+
     if (statusOriginal === "Concluído") {
       return "Concluído";
     }
+
+    // ==========================================================
+    // VERIFICA DISPOSITIVO
+    // ==========================================================
 
     const temDispositivo = Boolean(dispositivosAtribuidos[alunoId]);
 
@@ -632,6 +766,7 @@ export function useConsulta() {
     setDispositivosAtribuidos({});
     setStatusAlunos({});
     setRespostasAlunos({});
+    setConclusoesAlunos({});
     setBateriasAlunos({});
     setDatasHoraAlunos({});
   }
@@ -867,36 +1002,30 @@ export function useConsulta() {
 
   function handleIniciarServidor() {
     console.log("Iniciando Socket Server...");
-
     startServer();
-
     setServidorAtivo(true);
   }
 
   function handleEncerrarServidor() {
     console.log("Encerrando Socket Server...");
-
     stopServer();
-
     setServidorAtivo(false);
   }
 
   // ============================================================
-  // RETURN
+  // 📤 RETORNO
   // ============================================================
 
   return {
     avaliacoesOpcoes,
-
     servidorAtivo,
-
     escolasOpcoes,
     turmasOpcoes,
-
     dispositivosOpcoes,
-    dispositivosAtribuidos,
 
+    dispositivosAtribuidos,
     atribuirDispositivo,
+
     obterStatusAluno,
 
     carregandoOpcoes,
@@ -906,24 +1035,20 @@ export function useConsulta() {
     filtros: {
       avaliacao,
       setAvaliacao,
-
       escola,
       setEscola,
-
       turma,
       setTurma,
-
       dispositivo,
       setDispositivo,
-
       ano,
       setAno,
-
       horarioInicio,
       setHorarioInicio,
     },
 
     menuAberto,
+
     alunos,
 
     limparFiltros,
@@ -937,35 +1062,28 @@ export function useConsulta() {
     handleIniciarServidor,
     handleEncerrarServidor,
 
-    // ==========================================================
     // 🔋 BATERIA
-    // ==========================================================
-
     bateriasAlunos,
     obterBateriaAluno,
     obterBateriaDispositivo,
     atualizarBateriasAlunos,
 
-    // ==========================================================
     // 📚 DISCIPLINAS
-    // ==========================================================
-
     obterDisciplinaAplicada,
 
-    // ==========================================================
     // 📝 RESPOSTAS
-    // ==========================================================
-
     respostasAlunos,
     obterRespostasDisciplina,
     atualizarRespostasAlunos,
 
-    // ==========================================================
-    // 🕐 ÚLTIMA COMUNICAÇÃO
-    // ==========================================================
-
+    // 🕐 DATA/HORA
     datasHoraAlunos,
     obterDataHoraAluno,
     atualizarDatasHoraAlunos,
+
+    // ✅ CONCLUSÃO
+    conclusoesAlunos,
+    obterConclusaoAluno,
+    atualizarConclusoesAlunos,
   };
 }
