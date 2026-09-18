@@ -1,120 +1,92 @@
-import { listarRespostasAgrupadas } from '@/src/database/services/respostaRepository';
-import { corrigirProva, montarGabarito } from '@/src/services/correcaoGabarito';
-import { startServer, subscribe } from '@/src/services/socketServer';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
-
-type Questao = {
-    numero_questao: string;
-    alternativa: string;
-};
+import {
+  limparRespostasLocais,
+  listaRespostasPorAluno,
+  ProvaAgrupadaAluno,
+  sincronizarDadosComServidor,
+} from "@/src/database/services/sincronizarGabaritoRepository";
+import { useCallback, useEffect, useState } from "react";
+import { Alert } from "react-native";
 
 export function useSincronizador() {
-    const [ativo, setAtivo] = useState(false);
-    const [respostas, setRespostas] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [provasAgrupadas, setProvasAgrupadas] = useState<ProvaAgrupadaAluno[]>(
+    [],
+  );
+  const [syncedCardIds, setSyncedCardIds] = useState<Set<number | string>>(
+    new Set(),
+  );
 
-    // --- Iniciar Servidor Socket ---
-    function handleStartSync() {
-        try {
-            startServer();
-            setAtivo(true);
-            Alert.alert('Sincronizador ativo', 'Servidor iniciado com sucesso!');
-        } catch {
-            Alert.alert('Erro', 'Não foi possível iniciar o servidor');
-        }
+  const carregarDados = useCallback(async () => {
+    try {
+      const dados = await listaRespostasPorAluno();
+      setProvasAgrupadas(dados);
+    } catch (error) {
+      console.error("Erro ao carregar dados do SQLite:", error);
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    // --- Inscrição no Socket ---
-    useEffect(() => {
-        const unsubscribe = subscribe((dados: any[]) => {
-            setRespostas(dados);
-        });
-        return unsubscribe;
-    }, []);
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
 
-    // --- Leitura do SQLite ---
-    async function carregarSQLite() {
-        try {
-            setLoading(true);
-            const data = await listarRespostasAgrupadas();
-            console.log('📦 SQLITE:', data);
-            setRespostas(data || []);
-        } catch (e) {
-            console.log('❌ Erro SQLite:', e);
-        } finally {
-            setLoading(false);
-        }
+  const handleStartSync = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Sincroniza e vai marcando os cards como verdes à medida que são concluídos
+      const resultado = await sincronizarDadosComServidor(
+        (itemSincronizado) => {
+          setSyncedCardIds((prev) => {
+            const novoSet = new Set(prev);
+            novoSet.add(itemSincronizado.id_estudante_origem);
+            return novoSet;
+          });
+        },
+      );
+
+      if (resultado.success) {
+        // Exibe o diálogo de confirmação após o término do envio
+        Alert.alert(
+          "Sincronização Concluída",
+          `prova(s) enviada(s) com sucesso!\nDeseja apagar estes dados do aplicativo?`,
+          [
+            {
+              text: "Manter dados",
+              style: "cancel",
+            },
+            {
+              text: "Sim, deletar",
+              style: "destructive",
+              onPress: async () => {
+                try {
+                  setLoading(true);
+                  await limparRespostasLocais(); // Deleta do SQLite
+                  setSyncedCardIds(new Set()); // Reseta os cards verdes
+                  await carregarDados(); // Recarrega a lista (que ficará vazia)
+                } catch (err) {
+                  console.error("Erro ao limpar dados locais:", err);
+                } finally {
+                  setLoading(false);
+                }
+              },
+            },
+          ],
+        );
+      }
+    } catch (error: any) {
+      console.error("Erro na sincronização:", error);
+    } finally {
+      setLoading(false);
     }
+  }, [carregarDados]);
 
-    useEffect(() => {
-        carregarSQLite();
-    }, []);
-
-    // --- Agrupamento de Respostas por Caderno + Aluno ---
-    const provasAgrupadas = useMemo(() => {
-        const mapa = new Map<string, any>();
-
-        respostas.forEach((item) => {
-            const chave = `${item.id_caderno_de_prova_disciplina}_${item.nome_aluno}`;
-
-            if (!mapa.has(chave)) {
-                mapa.set(chave, {
-                    id_caderno_de_prova_disciplina: item.id_caderno_de_prova_disciplina,
-                    id_prova: item.id_prova,
-                    nome_prova: item.nome_prova || `Prova ${item.id_prova}`,
-                    nome_aluno: item.nome_aluno,
-                    respostas: [],
-                    questoes: 0,
-                });
-            }
-
-            mapa.get(chave).respostas.push(item);
-        });
-
-        mapa.forEach((value) => {
-            const totalQuestoes = new Set(
-                value.respostas.map((x: any) => x.numero_questao)
-            );
-            value.questoes = totalQuestoes.size;
-        });
-
-        return Array.from(mapa.values());
-    }, [respostas]);
-
-    // --- Correção da Prova ---
-    async function handleCorrigir(prova: any) {
-        try {
-            const questoes = (await buscarGabaritoProva(prova.id_prova)) as Questao[];
-            const gabarito = montarGabarito(questoes);
-
-            const respostasAluno: Record<string, string> = {};
-            prova.respostas.forEach((item: any) => {
-                respostasAluno[String(item.numero_questao)] = item.resposta_aluno;
-            });
-
-            const resultado = corrigirProva(gabarito, respostasAluno);
-            console.log('📊 RESULTADO:', resultado);
-
-            Alert.alert(
-                `Resultado - ${prova.nome_aluno}`,
-                `📄 Caderno: ${prova.id_caderno_de_prova_disciplina}\n\n` +
-                `✅ Acertos: ${resultado.acertos}\n` +
-                `❌ Erros: ${resultado.erros}\n` +
-                `📊 Percentual: ${resultado.percentual}%`
-            );
-        } catch (e) {
-            console.log('❌ Erro ao corrigir:', e);
-            Alert.alert('Erro', 'Não foi possível corrigir a prova');
-        }
-    }
-
-    return {
-        ativo,
-        loading,
-        respostasCount: respostas.length,
-        provasAgrupadas,
-        handleStartSync,
-        handleCorrigir,
-    };
+  return {
+    loading,
+    provasAgrupadas,
+    syncedCardIds,
+    handleStartSync,
+    carregarDados,
+  };
 }
