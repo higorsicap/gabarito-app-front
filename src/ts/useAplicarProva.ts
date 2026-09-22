@@ -234,15 +234,21 @@ export function useConsulta() {
         setCarregandoOpcoes(true);
 
         console.log(
-          "📝 Avaliação selecionada:",
+          "📝 Avaliação selecionada (saed_mob):",
           avaliacaoSelecionada.id_avaliacao_saed_mob,
         );
 
-        console.log("🏢 ID Cliente:", avaliacaoSelecionada.id_cliente);
-
-        const dadosEscolas = await preencherSelectEscola(
-          avaliacaoSelecionada.id_cliente,
+        console.log(
+          "📝 Passando id_avaliacao_saed para o filtro:",
+          avaliacaoSelecionada.id_avaliacao_saed,
         );
+
+        // AQUI: Passamos id_avaliacao_saed (ou id_avaliacao_saed_mob, dependendo de qual bate com a coluna id_cliente do banco)
+        const valorParaFiltro =
+          avaliacaoSelecionada.id_avaliacao_saed ??
+          avaliacaoSelecionada.id_avaliacao_saed_mob;
+
+        const dadosEscolas = await preencherSelectEscola(valorParaFiltro);
 
         if (!isMounted) return;
 
@@ -325,14 +331,27 @@ export function useConsulta() {
     let isMounted = true;
 
     async function carregarAlunosAutomaticamente() {
-      if (!escola || !turma) {
-        setAlunos([]);
-        setDispositivosAtribuidos({});
-        setStatusAlunos({});
-        setRespostasAlunos({});
-        setConclusoesAlunos({});
-        setBateriasAlunos({});
-        setDatasHoraAlunos({});
+      console.log(
+        `🔍 Carregando Alunos - Escola: ${escola} | Turma: ${turma} | Avaliação: ${avaliacao}`,
+      );
+
+      // 1. Validação estrita para evitar consultar com turma nula ou vazia
+      if (
+        !escola ||
+        !turma ||
+        turma === "null" ||
+        turma === "undefined" ||
+        String(turma).trim() === ""
+      ) {
+        if (isMounted) {
+          setAlunos([]);
+          setDispositivosAtribuidos({});
+          setStatusAlunos({});
+          setRespostasAlunos({});
+          setConclusoesAlunos({});
+          setBateriasAlunos({});
+          setDatasHoraAlunos({});
+        }
         return;
       }
 
@@ -345,12 +364,22 @@ export function useConsulta() {
 
         const listaAlunos = Array.isArray(dadosAlunos) ? dadosAlunos : [];
 
+        console.log(`✅ ${listaAlunos.length} aluno(s) encontrado(s).`);
+
         let disciplinasAplicadas: DisciplinaAplicada[] = [];
 
         if (avaliacao) {
-          disciplinasAplicadas = await obterDisciplinaAplicada(
-            String(avaliacao),
-          );
+          try {
+            disciplinasAplicadas = await obterDisciplinaAplicada(
+              String(avaliacao),
+            );
+          } catch (err) {
+            console.warn(
+              "⚠️ Não foi possível obter as disciplinas aplicadas:",
+              err,
+            );
+            disciplinasAplicadas = [];
+          }
         }
 
         if (!isMounted) return;
@@ -503,8 +532,6 @@ export function useConsulta() {
 
           novoMapa[aluno.id] =
             bateria !== null && bateria !== undefined ? Number(bateria) : null;
-
-          console.log(`🔋 [Bateria] Aluno=${aluno.id} | Bateria=${bateria}`);
         } catch (error) {
           console.error(
             `❌ [Bateria] Erro ao buscar bateria do aluno ${aluno.id}:`,
@@ -538,10 +565,6 @@ export function useConsulta() {
           const dataHora = await buscarDataHoraDispositivo(aluno.id);
 
           novoMapa[aluno.id] = dataHora;
-
-          console.log(
-            `🕐 [Comunicação] Aluno=${aluno.id} | Atualizado em=${dataHora}`,
-          );
         } catch (error) {
           console.error(
             `❌ [Comunicação] Erro ao buscar data/hora do aluno ${aluno.id}:`,

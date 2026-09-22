@@ -81,22 +81,22 @@ export async function sincronizarDadosComServidor(
   // 2. Usamos LEFT JOIN para garantir que dados sem turmas/relacionamento não fiquem de fora
   // 3. Adicionamos ORDER BY para garantir que siga a ordem exata dos alunos/questões
   const dadosParaSincronizar = await db.getAllAsync<any>(`
-    SELECT DISTINCT
-      asm.id_avaliacao_saed,
-      asm.id_anoletivo,
-      asm.id_cliente,
-      ats.id_serie,
-      arps.id_estudante_origem,
-      arps.id_disciplina,
-      arps.id_questao,
-      arps.is_marcada AS id_marcada,
-      arps.is_correta AS id_correta
-    FROM avaliacao_saed_mob asm 
-    INNER JOIN aluno_respostas_prova_saed arps 
-      ON arps.id_avaliacao_saed_mob = asm.id_avaliacao_saed_mob  
-    LEFT JOIN ava_turmas_saed ats 
-      ON ats.id_ava_turmas_saed = asm.id_cliente
-    ORDER BY arps.id_estudante_origem ASC, arps.id_questao ASC
+  SELECT DISTINCT
+    asm.id_avaliacao_saed,
+    asm.id_anoletivo,
+    asm.id_cliente,
+    aes.id_serie, -- Pega id_serie direto da tabela de estudantes
+    arps.id_estudante_origem,
+    arps.id_disciplina,
+    arps.id_questao,
+    arps.is_marcada AS id_marcada,
+    arps.is_correta AS id_correta
+  FROM avaliacao_saed_mob asm 
+  INNER JOIN aluno_respostas_prova_saed arps 
+    ON arps.id_avaliacao_saed_mob = asm.id_avaliacao_saed_mob  
+  LEFT JOIN ava_estudante_saed aes 
+    ON aes.id_estudante_origem = arps.id_estudante_origem
+  ORDER BY arps.id_estudante_origem ASC, arps.id_questao ASC
   `);
 
   if (!dadosParaSincronizar || dadosParaSincronizar.length === 0) {
@@ -126,6 +126,7 @@ export async function sincronizarDadosComServidor(
 
       if (onItemSuccess) {
         onItemSuccess(item);
+        console.log("passou aqui");
       }
     } catch (err) {
       console.error("Erro ao enviar item:", err);

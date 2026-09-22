@@ -155,6 +155,7 @@ export async function enviarProvaSelecionada(
 
 export interface AvaliacaoSelect {
   id_avaliacao_saed_mob: number;
+  id_avaliacao_saed: number;
   descricao_avaliacao: string;
   data_inicio_avaliacao: number;
   id_anoletivo: number;
@@ -167,6 +168,7 @@ export async function preencherSelectAvaliacao(): Promise<AvaliacaoSelect[]> {
       `
         SELECT 
             asm.id_avaliacao_saed_mob,
+            asm.id_avaliacao_saed,
             asm.descricao_avaliacao,
             asm.data_inicio_avaliacao,
             asm.id_anoletivo,
@@ -263,16 +265,12 @@ export async function listarAlunoEscolaTurma(
           aes.id_estudante_origem,
           aes.nome_estudante 
       FROM ava_estudante_saed aes 
-      WHERE aes.id_escola = $idEscola
-          AND aes.id_turma = $idTurma
+      WHERE aes.id_escola = ?
+        AND aes.id_turma = ?
       `,
-      {
-        $idEscola: idEscola,
-        $idTurma: idTurma,
-      },
+      [String(idEscola), String(idTurma)], // Passando array de parâmetros
     );
 
-    // Mapeia e ordena usando Natural Sort
     return result
       .map((item) => ({
         id: item.id_estudante_origem,
