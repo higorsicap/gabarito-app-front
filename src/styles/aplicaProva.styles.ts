@@ -11,7 +11,7 @@ export const styles = StyleSheet.create({
   cardFiltro: {
     backgroundColor: "#FFF",
     borderRadius: 12,
-    marginTop: 60,
+    marginTop: 90,
     padding: 20,
     marginHorizontal: 16,
     marginVertical: 12,

@@ -1,6 +1,9 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -11,6 +14,8 @@ import BottomNav from "@/src/components/BottomNav";
 import { useHome } from "@/src/ts/useSaed";
 
 export default function Home() {
+  const router = useRouter();
+
   const { loading, provasFiltradas } = useHome();
 
   return (
@@ -51,9 +56,24 @@ export default function Home() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.nome}>{item.prova}</Text>
                   <Text style={styles.data}>Municipio: {item.cliente}</Text>
-                  <Text style={styles.data}>Série: {item.serie}</Text>
                   <Text style={styles.data}>Ano Letivo: {item.ano}</Text>
                 </View>
+                <Pressable
+                  onPress={() => {
+                    console.log("ID da avaliação selecionada:", item.id_prova);
+
+                    router.push({
+                      pathname: "/(professor)/scanner",
+                      params: {
+                        idAvaliacao: String(item.id_prova),
+                      },
+                    });
+                  }}
+                  style={styles.botaoScan}
+                  hitSlop={10}
+                >
+                  <Ionicons name="camera-outline" size={24} color="#2563EB" />
+                </Pressable>
               </View>
             )}
           />
@@ -94,6 +114,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#777",
     marginTop: 4,
+  },
+  botaoScan: {
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "#EFF6FF",
   },
   emptyText: {
     marginTop: 20,
