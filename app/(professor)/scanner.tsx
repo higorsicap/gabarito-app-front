@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-
 import BottomNav from "@/src/components/BottomNav";
 
 import InicioScreen from "@/src/features/leitor-gabarito/screens/InicioScreen";
@@ -11,9 +9,6 @@ import SucessoScreen from "@/src/features/leitor-gabarito/screens/SucessoScreen"
 import useLeitorGabarito from "@/src/features/leitor-gabarito/hooks/useLeitorGabarito";
 
 import { scannerStyles as s } from "@/src/features/leitor-gabarito/styles/scanner.styles";
-
-// Ajuste o caminho se o repository tiver outro nome
-import { obterGabaritoAvaliacao } from "@/src/database/services/corrigirProvaRepository";
 
 import { useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -28,7 +23,7 @@ export default function Scanner() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  // ─── ID recebido da Home ────────────────────────────────
+  // ─── ID recebido da Home ──────────────────────────────
 
   const { idAvaliacao } = useLocalSearchParams<{
     idAvaliacao?: string;
@@ -42,54 +37,11 @@ export default function Scanner() {
     Number.isSafeInteger(idAvaliacaoNumero) &&
     idAvaliacaoNumero > 0;
 
-  // ─── Buscar avaliação no SQLite ────────────────────────
-
-  useEffect(() => {
-    if (!idValido) {
-      console.warn("ID da avaliação inválido:", idAvaliacao);
-      return;
-    }
-
-    let ativo = true;
-
-    const carregarAvaliacao = async () => {
-      try {
-        const avaliacao = await obterGabaritoAvaliacao(idAvaliacaoNumero);
-
-        if (!ativo) return;
-
-        if (!avaliacao) {
-          console.warn(
-            "Nenhuma avaliação encontrada no SQLite para o ID:",
-            idAvaliacaoNumero,
-          );
-          return;
-        }
-
-        console.log(
-          "========== JSON DA AVALIAÇÃO ==========\n",
-          JSON.stringify(avaliacao, null, 2),
-          "\n=======================================",
-        );
-      } catch (error) {
-        if (ativo) {
-          console.error("Erro ao carregar avaliação do SQLite:", error);
-        }
-      }
-    };
-
-    carregarAvaliacao();
-
-    return () => {
-      ativo = false;
-    };
-  }, [idValido, idAvaliacaoNumero]);
-
-  // ─── Permissão de câmera ────────────────────────────────
+  // ─── Permissão de câmera ──────────────────────────────
 
   const [permCamera, pedirPermCamera] = useCameraPermissions();
 
-  // ─── Hook do leitor ─────────────────────────────────────
+  // ─── Hook do leitor ───────────────────────────────────
 
   const {
     etapa,
@@ -114,7 +66,7 @@ export default function Scanner() {
     reiniciar,
   } = useLeitorGabarito(idValido ? idAvaliacaoNumero : null);
 
-  // ─── Validação da avaliação ─────────────────────────────
+  // ─── Validação da avaliação ───────────────────────────
 
   if (!idValido) {
     return (
@@ -133,7 +85,7 @@ export default function Scanner() {
     );
   }
 
-  // ─── Aguardando permissão de câmera ─────────────────────
+  // ─── Aguardando permissão de câmera ───────────────────
 
   if (!permCamera) {
     return (
@@ -143,7 +95,7 @@ export default function Scanner() {
     );
   }
 
-  // ─── Solicitar permissão de câmera ──────────────────────
+  // ─── Solicitar permissão de câmera ────────────────────
 
   if (!permCamera.granted) {
     return (
@@ -162,7 +114,7 @@ export default function Scanner() {
     );
   }
 
-  // ─── Tela: Início ───────────────────────────────────────
+  // ─── Tela: Início ─────────────────────────────────────
 
   if (etapa === "inicio") {
     return (
@@ -175,7 +127,7 @@ export default function Scanner() {
     );
   }
 
-  // ─── Tela: QR Code ──────────────────────────────────────
+  // ─── Tela: QR Code ────────────────────────────────────
 
   if (etapa === "qrcode") {
     return (
@@ -192,7 +144,7 @@ export default function Scanner() {
     );
   }
 
-  // ─── Tela: Preview ──────────────────────────────────────
+  // ─── Tela: Preview ────────────────────────────────────
 
   if (etapa === "preview" && imagemPreview) {
     return (
@@ -213,7 +165,7 @@ export default function Scanner() {
     );
   }
 
-  // ─── Tela: Enviando / Sincronizando ─────────────────────
+  // ─── Tela: Enviando / Sincronizando ───────────────────
 
   if (etapa === "enviando" || etapa === "sincronizando") {
     return (
@@ -225,7 +177,7 @@ export default function Scanner() {
     );
   }
 
-  // ─── Tela: Sucesso ──────────────────────────────────────
+  // ─── Tela: Sucesso ────────────────────────────────────
 
   if (etapa === "sucesso") {
     return (

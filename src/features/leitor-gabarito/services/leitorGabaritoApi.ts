@@ -15,6 +15,10 @@ export async function enviarUmaProva(
       throw new Error(`Arquivo não encontrado: ${imagemUri}`);
     }
 
+    console.log("========== ENVIANDO PROVA ==========");
+    console.log("ID da prova:", idProva);
+    console.log("Imagem:", imagemUri);
+
     const formData = new FormData();
 
     formData.append("s", idProva);
@@ -30,13 +34,28 @@ export async function enviarUmaProva(
 
     const texto = await resposta.text();
 
+    console.log("========== RESPOSTA DA API ==========");
+    console.log("Status HTTP:", resposta.status);
+
     if (!resposta.ok) {
+      console.error("Erro retornado pela API:", texto);
+
       throw new Error(`Erro HTTP ${resposta.status}: ${texto}`);
     }
 
     try {
-      return JSON.parse(texto) as RespostaAPI;
+      const dados = JSON.parse(texto) as RespostaAPI;
+
+      console.log(
+        "========== JSON COMPLETO DA IA ==========\n",
+        JSON.stringify(dados, null, 2),
+        "\n=====================================",
+      );
+
+      return dados;
     } catch {
+      console.error("Resposta inválida da API:", texto);
+
       return {
         sucesso: false,
         mensagem: texto || "Resposta inválida do servidor.",

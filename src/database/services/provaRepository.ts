@@ -8,6 +8,7 @@ export async function listarProvasOffline() {
       `
             SELECT 
                 asm.id_avaliacao_saed_mob,
+                asm.id_avaliacao_saed,
                 asm.id_cliente,
                 asm.id_serie,
                 asm.id_anoletivo,
