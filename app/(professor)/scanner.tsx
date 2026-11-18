@@ -51,6 +51,7 @@ export default function Scanner() {
     imagemPreview,
     progresso,
     resultados,
+    correcoes, // ADICIONADO
     online,
     pendentes,
     fadeAnim,
@@ -185,6 +186,7 @@ export default function Scanner() {
         online={online}
         pendentes={pendentes}
         resultados={resultados}
+        correcoes={correcoes}
         fadeAnim={fadeAnim}
         onSincronizar={sincronizarPendentes}
         onReiniciar={reiniciar}

@@ -31,6 +31,8 @@ import type {
   ResultadoProcessado,
 } from "../types/leitorGabarito.types";
 
+import { salvarRespostasAluno } from "@/src/database/services/alunoRespostasProvaRepository";
+
 // ─── QR Code ────────────────────────────────────────────────
 
 function parsearQR(raw: string): DadosQR {
@@ -212,6 +214,27 @@ export default function useLeitorGabarito(idAvaliacao: number | null) {
         cartao.gabaritos,
       );
 
+      // Identifica o estudante pelo QR Code
+      const idEstudanteOrigem = Number(dadosQR.id_estudante_origem);
+
+      if (!Number.isSafeInteger(idEstudanteOrigem) || idEstudanteOrigem <= 0) {
+        throw new Error("ID do estudante inválido no QR Code.");
+      }
+
+      // Salva as respostas corrigidas no SQLite
+      const totalRespostasSalvas = await salvarRespostasAluno({
+        idEstudanteOrigem,
+        idAvaliacaoSaed,
+        avaliacaoSQLite,
+        disciplinasIA: cartao.gabaritos,
+      });
+
+      console.log("========== RESPOSTAS DO ALUNO ==========");
+      console.log("Estudante:", idEstudanteOrigem);
+      console.log("Avaliação:", idAvaliacaoSaed);
+      console.log("Respostas salvas:", totalRespostasSalvas);
+      console.log("=======================================");
+
       console.log(
         "========== RESULTADO DA CORREÇÃO ==========\n",
         JSON.stringify(
@@ -237,7 +260,7 @@ export default function useLeitorGabarito(idAvaliacao: number | null) {
           null,
           2,
         ),
-        "\n============================================",
+        "============================================",
       );
 
       return resultado;

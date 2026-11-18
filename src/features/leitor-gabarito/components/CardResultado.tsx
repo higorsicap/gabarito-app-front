@@ -8,25 +8,83 @@ import type {
   ResultadoProcessado,
 } from "../types/leitorGabarito.types";
 
+import type { ResultadoCorrecao } from "../services/compararGabarito";
+
+// ─── Cores ─────────────────────────────────────────────
+
 const COR_PRIMARIA = "#2563EB";
 const COR_PERIGO = "#DC2626";
+const COR_SUCESSO = "#16A34A";
+const COR_NEUTRA = "#94A3B8";
 
-const COR_LETRA: Record<string, string> = {
-  A: "#0EA5E9",
-  B: "#0EA5E9",
-  C: "#0EA5E9",
-  D: "#0EA5E9",
-};
+// ─── Props ─────────────────────────────────────────────
 
 interface CardResultadoProps {
   resultado: ResultadoProcessado;
+  correcao?: ResultadoCorrecao | null;
 }
 
-export default function CardResultado({ resultado }: CardResultadoProps) {
+// ─── Funções auxiliares ────────────────────────────────
+
+function normalizarTexto(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+function obterCorSituacao(situacao?: string | null): string {
+  switch (situacao) {
+    case "acertou":
+      return COR_SUCESSO;
+
+    case "errou":
+      return COR_PERIGO;
+
+    default:
+      return COR_NEUTRA;
+  }
+}
+
+function obterDadosQR(raw: string): {
+  id_avaliacao_saed?: number;
+  id_turma?: number;
+  nome_estudante?: string;
+} {
+  try {
+    const dados = JSON.parse(raw);
+
+    if (typeof dados !== "object" || dados === null || Array.isArray(dados)) {
+      return {};
+    }
+
+    return dados;
+  } catch {
+    return {};
+  }
+}
+
+// ─── Componente ────────────────────────────────────────
+
+export default function CardResultado({
+  resultado,
+  correcao = null,
+}: CardResultadoProps) {
   const [abaAtiva, setAbaAtiva] = useState(0);
+
+  // Proteção contra resultado indefinido.
+  if (!resultado) {
+    console.warn("CardResultado: resultado não informado.");
+
+    return null;
+  }
+
   const { dadosQR, retorno } = resultado;
 
-  if (!retorno.sucesso || !retorno.dados?.cartao_respostas) {
+  // ─── Falha no processamento ─────────────────────────
+
+  if (!retorno?.sucesso || !retorno.dados?.cartao_respostas) {
     return (
       <View style={styles.card}>
         <View style={[styles.header, { backgroundColor: COR_PERIGO }]}>
@@ -36,30 +94,87 @@ export default function CardResultado({ resultado }: CardResultadoProps) {
 
           <View style={{ flex: 1 }}>
             <Text style={styles.nome}>Erro ao processar</Text>
-            <Text style={styles.turma}>{dadosQR.titulo ?? dadosQR.raw}</Text>
+
+            <Text style={styles.turma}>
+              {dadosQR?.titulo ?? "Prova não processada"}
+            </Text>
           </View>
         </View>
 
         <View style={{ padding: 16 }}>
           <Text style={styles.erroTexto}>
-            {retorno.mensagem ?? "Falha desconhecida"}
+            {retorno?.mensagem ?? "Falha desconhecida"}
           </Text>
         </View>
       </View>
     );
   }
 
-  const cartao = retorno.dados.cartao_respostas;
-  const gabarito = cartao.gabaritos[abaAtiva];
-  const estudante =
-    typeof cartao.estudante === "string" && cartao.estudante.trim()
-      ? cartao.estudante.trim()
-      : "Estudante";
+  // ─── Dados da prova ─────────────────────────────────
 
-  const turma = typeof cartao.turma === "string" ? cartao.turma : "";
+  const cartao = retorno.dados.cartao_respostas;
+
+  const dadosOriginais = obterDadosQR(dadosQR?.raw ?? "");
+
+  const estudante =
+    cartao.nome_estudante?.trim() ||
+    dadosQR?.nome_estudante?.trim() ||
+    dadosOriginais.nome_estudante?.trim() ||
+    "Estudante";
+
+  const turma =
+    cartao.turma || String(dadosQR?.id_turma ?? dadosOriginais.id_turma ?? "");
+
+  const idAvaliacao =
+    dadosQR?.id_avaliacao_saed ?? dadosOriginais.id_avaliacao_saed;
 
   const inicial = estudante.charAt(0).toUpperCase();
-  (" ");
+
+  const gabaritos = cartao.gabaritos ?? [];
+
+  // ─── Sem disciplinas ────────────────────────────────
+
+  if (gabaritos.length === 0) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarLetra}>{inicial}</Text>
+          </View>
+
+          <Text style={styles.nome}>{estudante}</Text>
+        </View>
+
+        <View style={{ padding: 16 }}>
+          <Text style={styles.erroTexto}>Nenhuma disciplina identificada.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // ─── Disciplina selecionada ─────────────────────────
+
+  const indiceAba = Math.min(abaAtiva, gabaritos.length - 1);
+
+  const gabarito = gabaritos[indiceAba];
+
+  // ─── Localizar correção da disciplina ───────────────
+
+  const disciplinaCorrigida = correcao?.disciplinas.find(
+    (disciplina) =>
+      normalizarTexto(disciplina.desc_disciplina) ===
+      normalizarTexto(gabarito.disciplina),
+  );
+
+  // ─── Indexar questões corrigidas ────────────────────
+
+  const questoesCorrigidas = new Map(
+    disciplinaCorrigida?.questoes.map(
+      (questao) => [questao.numero_questao, questao] as const,
+    ) ?? [],
+  );
+
+  // ─── Organizar questões em linhas de 5 ──────────────
 
   const linhas: Questao[][] = [];
 
@@ -67,8 +182,12 @@ export default function CardResultado({ resultado }: CardResultadoProps) {
     linhas.push(gabarito.questoes.slice(i, i + 5));
   }
 
+  // ─── Renderização ───────────────────────────────────
+
   return (
     <View style={styles.card}>
+      {/* Cabeçalho */}
+
       <View style={styles.header}>
         <View style={styles.avatar}>
           <Text style={styles.avatarLetra}>{inicial}</Text>
@@ -79,27 +198,31 @@ export default function CardResultado({ resultado }: CardResultadoProps) {
             {estudante}
           </Text>
 
-          {!!turma && <Text style={styles.turma}>{turma}</Text>}
+          {!!turma && <Text style={styles.turma}>Turma {turma}</Text>}
         </View>
       </View>
 
+      {/* Identificação da avaliação */}
+
       <View style={styles.tagQR}>
         <Text style={styles.tagQRTexto}>
-          🔗 QR · {dadosQR.titulo ?? dadosQR.raw}
+          🔗 QR · Avaliação {idAvaliacao ?? "não identificada"}
         </Text>
       </View>
 
+      {/* Abas das disciplinas */}
+
       <View style={styles.abas}>
-        {cartao.gabaritos.map((g, idx) => (
+        {gabaritos.map((g, idx) => (
           <Pressable
-            key={g.identificador}
-            style={[styles.aba, abaAtiva === idx && styles.abaAtiva]}
+            key={`${g.identificador}-${idx}`}
+            style={[styles.aba, indiceAba === idx && styles.abaAtiva]}
             onPress={() => setAbaAtiva(idx)}
           >
             <Text
               style={[
                 styles.abaTexto,
-                abaAtiva === idx && styles.abaTextoAtivo,
+                indiceAba === idx && styles.abaTextoAtivo,
               ]}
               numberOfLines={1}
             >
@@ -109,29 +232,67 @@ export default function CardResultado({ resultado }: CardResultadoProps) {
         ))}
       </View>
 
+      {/* Nome da disciplina */}
+
       <Text style={styles.disciplina}>{gabarito.disciplina}</Text>
+
+      {/* Resumo da correção */}
+
+      {disciplinaCorrigida && (
+        <View style={styles.resumo}>
+          <Text style={styles.resumoAcertos}>
+            ✓ {disciplinaCorrigida.acertos} acerto(s)
+          </Text>
+
+          <Text style={styles.resumoErros}>
+            ✕ {disciplinaCorrigida.erros} erro(s)
+          </Text>
+        </View>
+      )}
+
+      {/* Bolinhas das respostas */}
 
       <View style={styles.grade}>
         {linhas.map((linha, li) => (
           <View key={li} style={styles.linha}>
-            {linha.map((questao) => (
-              <BolinhaResposta key={questao.questao} {...questao} />
-            ))}
+            {linha.map((questao) => {
+              const numeroQuestao = Number(questao.questao);
+
+              const questaoCorrigida = questoesCorrigidas.get(numeroQuestao);
+
+              const cor = obterCorSituacao(questaoCorrigida?.situacao);
+
+              return (
+                <BolinhaResposta key={questao.questao} {...questao} cor={cor} />
+              );
+            })}
           </View>
         ))}
       </View>
 
+      {/* Legenda */}
+
       <View style={styles.legenda}>
-        {Object.entries(COR_LETRA).map(([letra, cor]) => (
-          <View key={letra} style={styles.legendaItem}>
-            <View style={[styles.dot, { backgroundColor: cor }]} />
-            <Text style={styles.legendaTexto}>{letra}</Text>
-          </View>
-        ))}
+        <View style={styles.legendaItem}>
+          <View style={[styles.dot, { backgroundColor: COR_SUCESSO }]} />
+          <Text style={styles.legendaTexto}>Correta</Text>
+        </View>
+
+        <View style={styles.legendaItem}>
+          <View style={[styles.dot, { backgroundColor: COR_PERIGO }]} />
+          <Text style={styles.legendaTexto}>Errada</Text>
+        </View>
+
+        <View style={styles.legendaItem}>
+          <View style={[styles.dot, { backgroundColor: COR_NEUTRA }]} />
+          <Text style={styles.legendaTexto}>Não identificada</Text>
+        </View>
       </View>
     </View>
   );
 }
+
+// ─── Estilos ───────────────────────────────────────────
 
 const styles = StyleSheet.create({
   card: {
@@ -147,6 +308,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 20,
   },
+
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -154,6 +316,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#2f4990",
     gap: 14,
   },
+
   avatar: {
     width: 48,
     height: 48,
@@ -163,10 +326,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexShrink: 0,
   },
-  avatarLetra: { color: "#FFF", fontSize: 22, fontWeight: "700" },
-  nome: { color: "#FFF", fontSize: 15, fontWeight: "700", lineHeight: 20 },
-  turma: { color: "#93C5FD", fontSize: 12, marginTop: 2 },
-  erroTexto: { fontSize: 14, color: "#475569", textAlign: "center" },
+
+  avatarLetra: {
+    color: "#FFF",
+    fontSize: 22,
+    fontWeight: "700",
+  },
+
+  nome: {
+    color: "#FFF",
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+
+  turma: {
+    color: "#93C5FD",
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  erroTexto: {
+    fontSize: 14,
+    color: "#475569",
+    textAlign: "center",
+  },
+
   tagQR: {
     backgroundColor: "#EFF6FF",
     paddingVertical: 6,
@@ -174,21 +359,43 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#DBEAFE",
   },
-  tagQRTexto: { fontSize: 11, color: "#2563EB", fontWeight: "500" },
+
+  tagQRTexto: {
+    fontSize: 11,
+    color: "#2563EB",
+    fontWeight: "500",
+  },
+
   abas: {
     flexDirection: "row",
     backgroundColor: "#F1F5F9",
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
   },
-  aba: { flex: 1, paddingVertical: 12, alignItems: "center" },
+
+  aba: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+
   abaAtiva: {
     borderBottomWidth: 2,
     borderBottomColor: COR_PRIMARIA,
     backgroundColor: "#FFF",
   },
-  abaTexto: { fontSize: 12, fontWeight: "500", color: "#94A3B8" },
-  abaTextoAtivo: { color: COR_PRIMARIA, fontWeight: "700" },
+
+  abaTexto: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#94A3B8",
+  },
+
+  abaTextoAtivo: {
+    color: COR_PRIMARIA,
+    fontWeight: "700",
+  },
+
   disciplina: {
     fontSize: 11,
     fontWeight: "600",
@@ -199,16 +406,61 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  grade: { padding: 16, gap: 10 },
-  linha: { flexDirection: "row", gap: 8, justifyContent: "center" },
+
+  resumo: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 20,
+    marginTop: 12,
+  },
+
+  resumoAcertos: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COR_SUCESSO,
+  },
+
+  resumoErros: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COR_PERIGO,
+  },
+
+  grade: {
+    padding: 16,
+    gap: 10,
+  },
+
+  linha: {
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+  },
+
   legenda: {
     flexDirection: "row",
     justifyContent: "center",
+    flexWrap: "wrap",
     gap: 12,
     paddingBottom: 16,
     paddingTop: 4,
   },
-  legendaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  legendaTexto: { fontSize: 11, color: "#64748B", fontWeight: "600" },
+
+  legendaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  legendaTexto: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "600",
+  },
 });
