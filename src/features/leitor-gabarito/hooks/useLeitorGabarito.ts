@@ -37,36 +37,52 @@ import { salvarRespostasAluno } from "@/src/database/services/alunoRespostasProv
 
 function parsearQR(raw: string): DadosQR {
   try {
-    const dados = JSON.parse(raw);
+    let dados = JSON.parse(raw);
+
+    if (typeof dados === "string") {
+      dados = JSON.parse(dados);
+    }
 
     if (dados === null || typeof dados !== "object" || Array.isArray(dados)) {
       throw new Error("QR Code inválido.");
     }
 
+    const ias = Number(dados.ias ?? dados.id_avaliacao_saed);
+
+    const ieo = Number(dados.ieo ?? dados.id_estudante_origem);
+
+    if (!Number.isSafeInteger(ias) || ias <= 0) {
+      throw new Error("ID da avaliação inválido.");
+    }
+
+    if (!Number.isSafeInteger(ieo) || ieo <= 0) {
+      throw new Error("ID do estudante inválido.");
+    }
+
     return {
-      ...dados,
       raw,
+      ias,
+      ieo,
+      titulo: `Estudante ${ieo}`,
+      descricao: `Avaliação ${ias}`,
     };
-  } catch {
+  } catch (error) {
+    console.error("Erro ao interpretar QR Code:", error);
+
     return {
       raw,
-      titulo: "QR code lido",
+      titulo: "QR Code inválido",
       descricao: raw,
     };
   }
 }
 
 // Recupera o ID original da avaliação presente no QR Code.
+
 function obterIdAvaliacaoQR(raw: string): number | null {
-  try {
-    const dados = JSON.parse(raw);
+  const dados = parsearQR(raw);
 
-    const id = Number(dados?.id_avaliacao_saed);
-
-    return Number.isSafeInteger(id) && id > 0 ? id : null;
-  } catch {
-    return null;
-  }
+  return dados.ias ?? null;
 }
 
 // ─── Hook principal ────────────────────────────────────────
@@ -167,8 +183,7 @@ export default function useLeitorGabarito(idAvaliacao: number | null) {
       // Utiliza o QR Code original lido pelo aplicativo.
       const dadosQR = parsearQR(qrCodeOriginal);
 
-      const idAvaliacaoQR = Number(dadosQR.id_avaliacao_saed);
-
+      const idAvaliacaoQR = Number(dadosQR.ias);
       console.log("========== VALIDANDO AVALIAÇÃO ==========");
 
       console.log("ID da avaliação selecionada:", idAvaliacaoSaed);
@@ -215,7 +230,7 @@ export default function useLeitorGabarito(idAvaliacao: number | null) {
       );
 
       // Identifica o estudante pelo QR Code
-      const idEstudanteOrigem = Number(dadosQR.id_estudante_origem);
+      const idEstudanteOrigem = Number(dadosQR.ieo);
 
       if (!Number.isSafeInteger(idEstudanteOrigem) || idEstudanteOrigem <= 0) {
         throw new Error("ID do estudante inválido no QR Code.");
@@ -236,25 +251,17 @@ export default function useLeitorGabarito(idAvaliacao: number | null) {
       console.log("=======================================");
 
       console.log(
-        "========== RESULTADO DA CORREÇÃO ==========\n",
+        "========== RESULTADO DA CORREÇÃO ==========",
         JSON.stringify(
           {
             estudante: {
-              id_estudante_origem: dadosQR.id_estudante_origem,
-
-              nome_estudante: dadosQR.nome_estudante,
-
-              id_turma: dadosQR.id_turma,
-
-              id_serie: dadosQR.id_serie,
+              id_estudante_origem: dadosQR.ieo,
             },
-
             avaliacao: {
               id_avaliacao_saed: avaliacaoSQLite.id_avaliacao_saed,
 
               id_avaliacao_saed_mob: avaliacaoSQLite.id_avaliacao_saed_mob,
             },
-
             correcao: resultado,
           },
           null,

@@ -12,11 +12,8 @@ export interface DadosQR {
   raw: string;
 
   // Campos originais do QR Code
-  id_avaliacao_saed?: number;
-  id_turma?: number;
-  id_serie?: number;
-  id_estudante_origem?: number;
-  nome_estudante?: string;
+  ias?: number;
+  ieo?: number;
 
   // Campos auxiliares da interface
   id?: string;
