@@ -2,7 +2,8 @@
   "expo": {
     "name": "Modulo Avaliativo",
     "slug": "Modulo-Avaliativo",
-    "version": "1.0.0",
+    "owner": "sicap-solucoes",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./src/assets/images/logo_icon2.png",
     "scheme": "gabaritoapp",
@@ -10,21 +11,21 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.higorwinchester.gabaritoapp",
+      "bundleIdentifier": "com.sicapsolucoes.gabaritoapp",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./src/assets/images/logo_icon2.png",
         "backgroundImage": "./src/assets/images/logo_icon2.png",
         "monochromeImage": "./src/assets/images/logo_icon2.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.higorwinchester.gabaritoapp"
+      "package": "com.sicapsolucoes.gabaritoapp"
     },
     "web": {
       "output": "static",
@@ -58,7 +59,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "17853b52-e67c-4ec9-8fab-3b5576336631"
+        "projectId": "c3d628f8-e9aa-47d3-9580-94c7ea76aa69"
       }
     }
   }

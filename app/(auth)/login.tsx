@@ -38,10 +38,7 @@ export default function Login() {
           onPress={() => setShowTipoModal(true)}
         >
           <Text
-            style={[
-              styles.selectText,
-              !tipoAcesso && styles.placeholderText,
-            ]}
+            style={[styles.selectText, !tipoAcesso && styles.placeholderText]}
           >
             {tipoAcesso === "professor"
               ? "Professor"
@@ -156,7 +153,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 15,
     paddingHorizontal: 12,
-    backgroundColor: "#fff",
+    backgroundColor: "#000000",
   },
 
   selectContainer: {
